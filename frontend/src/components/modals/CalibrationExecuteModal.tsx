@@ -1,20 +1,43 @@
-import { X } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
+import { calibrationExecutionConfigRemediationApplied } from "../../utils/formatters";
+import { ConfigRemediationPanel } from "./ConfigRemediationPanel";
 
 type CalibrationExecuteModalProps = ScreenPropsFor<
+  | "applyCalibrationConfigRemediation"
   | "buildCalibrationExecutionNotes"
+  | "calibrationConfigRemediationApplyResult"
+  | "calibrationConfigRemediationBusy"
+  | "calibrationConfigRemediationError"
+  | "calibrationConfigRemediationPreview"
+  | "calibrationConfigRemediationSelectedIds"
+  | "calibrationExecutionConsoleExcerpt"
+  | "calibrationExecutionPidParameters"
   | "calibrationExecuteTest"
+  | "calibrationExecutionBusy"
+  | "calibrationLiveConsole"
+  | "calibrationLiveConsoleError"
   | "calibrationExecutionResult"
   | "calibrationExecutionRowClass"
+  | "calibrationExecutionRequiresSaveConfig"
   | "calibrationGcodeReviewed"
   | "calibrationOperatorPresent"
   | "calibrationPreflight"
+  | "calibrationSaveConfigBusy"
+  | "calibrationSaveConfigError"
+  | "calibrationSaveConfigExecutionId"
+  | "calibrationSaveConfigResult"
+  | "calibrationConfigRemediationExecutionId"
   | "executeCalibrationGcode"
   | "formatCalibrationExecutionResult"
   | "formatCalibrationExecutionStatus"
+  | "formatSaveConfigFailureMessage"
   | "loading"
   | "openCalibrationResult"
+  | "operationStatus"
+  | "previewCalibrationConfigRemediation"
   | "selectedPrinterId"
+  | "saveCalibrationConfigFromExecution"
   | "setCalibrationExecuteTestKey"
   | "setCalibrationExecutionConfirmation"
   | "setCalibrationGcodeReviewed"
@@ -22,23 +45,45 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "setCalibrationObservedValue"
   | "setCalibrationOperatorPresent"
   | "summarizeCalibrationExecutionFinalState"
+  | "toggleCalibrationConfigRemediationTarget"
 >;
 
 export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   const {
     buildCalibrationExecutionNotes,
+    calibrationExecutionConsoleExcerpt,
+    calibrationExecutionPidParameters,
     calibrationExecuteTest,
+    calibrationExecutionBusy,
+    calibrationLiveConsole,
+    calibrationLiveConsoleError,
     calibrationExecutionResult,
     calibrationExecutionRowClass,
+    calibrationExecutionRequiresSaveConfig,
     calibrationGcodeReviewed,
     calibrationOperatorPresent,
     calibrationPreflight,
+    calibrationSaveConfigBusy,
+    calibrationSaveConfigError,
+    calibrationSaveConfigExecutionId,
+    calibrationSaveConfigResult,
+    calibrationConfigRemediationExecutionId,
+    applyCalibrationConfigRemediation,
+    calibrationConfigRemediationApplyResult,
+    calibrationConfigRemediationBusy,
+    calibrationConfigRemediationError,
+    calibrationConfigRemediationPreview,
+    calibrationConfigRemediationSelectedIds,
     executeCalibrationGcode,
     formatCalibrationExecutionResult,
     formatCalibrationExecutionStatus,
+    formatSaveConfigFailureMessage,
     loading,
     openCalibrationResult,
+    operationStatus,
+    previewCalibrationConfigRemediation,
     selectedPrinterId,
+    saveCalibrationConfigFromExecution,
     setCalibrationExecuteTestKey,
     setCalibrationExecutionConfirmation,
     setCalibrationGcodeReviewed,
@@ -46,11 +91,45 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     setCalibrationObservedValue,
     setCalibrationOperatorPresent,
     summarizeCalibrationExecutionFinalState,
+    toggleCalibrationConfigRemediationTarget,
   } = props;
 
   if (!calibrationExecuteTest) {
     return null;
   }
+  const liveHotend = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
+  const liveBed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
+  const liveProgressRows = [
+    ["Print state", operationStatus?.miscellaneous?.print_state ?? "-"],
+    ["Hotend", formatLiveTemperature(liveHotend?.temperature, liveHotend?.target)],
+    ["Mesa", formatLiveTemperature(liveBed?.temperature, liveBed?.target)],
+    ["Home", String(operationStatus?.toolhead?.homed_axes ?? "-")],
+    ["Posição", formatLivePosition(operationStatus?.toolhead?.position)],
+  ];
+  const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
+  const visibleConsole = calibrationLiveConsole.length ? calibrationLiveConsole : resultConsoleExcerpt;
+  const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
+  const livePidParameters = resultPidParameters ?? extractPidParametersFromConsole(visibleConsole);
+  const executionCompleted = calibrationExecutionResult?.status === "executed";
+  const executionRunning = calibrationExecutionResult?.status === "dispatched_unconfirmed";
+  const saveConfigRequired = calibrationExecutionResult ? calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) : false;
+  const liveSaveConfigRequired = visibleConsole.join("\n").toUpperCase().includes("SAVE_CONFIG");
+  const currentExecutionId = calibrationExecutionResult?.id ?? null;
+  const saveConfigMatchesExecution = currentExecutionId !== null && calibrationSaveConfigExecutionId === currentExecutionId;
+  const remediationMatchesExecution = currentExecutionId !== null && calibrationConfigRemediationExecutionId === currentExecutionId;
+  const remediationApplied =
+    Boolean(calibrationExecutionResult && calibrationExecutionConfigRemediationApplied(calibrationExecutionResult)) ||
+    (remediationMatchesExecution && calibrationConfigRemediationApplyResult?.status === "applied");
+  const saveConfigExecuted = saveConfigMatchesExecution && calibrationSaveConfigResult?.status === "executed";
+  const saveConfigFailed =
+    saveConfigMatchesExecution &&
+    !remediationApplied &&
+    (Boolean(calibrationSaveConfigError) || calibrationSaveConfigResult?.status === "failed");
+  const effectiveSaveConfigRequired = !remediationApplied && (saveConfigRequired || liveSaveConfigRequired);
+  const matchingSaveConfigResult = saveConfigMatchesExecution ? calibrationSaveConfigResult : null;
+  const matchingPreview = remediationMatchesExecution ? calibrationConfigRemediationPreview : null;
+  const matchingApplyResult = remediationMatchesExecution ? calibrationConfigRemediationApplyResult : null;
+  const showRemediationPanel = livePidParameters && (saveConfigFailed || Boolean(matchingPreview) || Boolean(matchingApplyResult));
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
@@ -78,6 +157,28 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           </ul>
         ) : null}
         <pre>{calibrationExecuteTest.gcode.join("\n")}</pre>
+        {calibrationExecutionBusy || executionRunning || operationStatus ? (
+          <div className={`calibration-live-progress ${calibrationExecutionBusy || executionRunning ? "running" : ""}`}>
+            <div>
+              <strong>{calibrationExecutionBusy || executionRunning ? "Acompanhando comando" : "Status ao vivo"}</strong>
+              <span>{operationStatus?.connected ? "Leitura Moonraker/Printora ativa" : "Aguardando leitura ao vivo"}</span>
+            </div>
+            {calibrationExecutionBusy || executionRunning ? (
+              <span className="calibration-live-running">
+                <LoaderCircle size={15} />
+                acompanhando a impressora
+              </span>
+            ) : null}
+            <dl>
+              {liveProgressRows.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
         <div className="test-confirm-grid">
           <label className="inline-check">
             <input
@@ -100,9 +201,74 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           <div className={`test-history-row ${calibrationExecutionRowClass(calibrationExecutionResult.status)}`}>
             <strong>{formatCalibrationExecutionStatus(calibrationExecutionResult.status)}</strong>
             <span>{calibrationExecutionResult.message}</span>
+            {calibrationExecutionResult.block_reasons.length ? (
+              <ul className="test-blockers">
+                {calibrationExecutionResult.block_reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : null}
             <small>{summarizeCalibrationExecutionFinalState(calibrationExecutionResult)}</small>
+            {livePidParameters ? (
+              <small>
+                PID: Kp {livePidParameters.kp} · Ki {livePidParameters.ki} · Kd {livePidParameters.kd}
+              </small>
+            ) : null}
+            {effectiveSaveConfigRequired ? (
+              <div className="calibration-save-config-note">
+                <span>Valores calculados. Para aplicar no printer.cfg, execute SAVE_CONFIG. O Klipper será reiniciado.</span>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void saveCalibrationConfigFromExecution({ execution: calibrationExecutionResult })}
+                  disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted || remediationApplied}
+                >
+                  {calibrationSaveConfigBusy ? "Salvando" : saveConfigExecuted ? "Config salva" : "Salvar config"}
+                </button>
+              </div>
+            ) : null}
+            {remediationApplied ? (
+              <small>Config aplicada no arquivo incluído com backup; o erro original do SAVE_CONFIG já foi tratado.</small>
+            ) : null}
+            {matchingSaveConfigResult && !remediationApplied ? (
+              <small>
+                SAVE_CONFIG: {matchingSaveConfigResult.status}
+                {matchingSaveConfigResult.block_reason ? ` · ${matchingSaveConfigResult.block_reason}` : ""}
+              </small>
+            ) : null}
+            {saveConfigFailed ? (
+              <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(matchingSaveConfigResult, calibrationSaveConfigError)}</small>
+            ) : null}
+            {showRemediationPanel ? (
+              <ConfigRemediationPanel
+                busy={calibrationConfigRemediationBusy}
+                error={calibrationConfigRemediationError}
+                preview={matchingPreview}
+                applyResult={matchingApplyResult}
+                selectedIds={calibrationConfigRemediationSelectedIds}
+                onPreview={() => void previewCalibrationConfigRemediation(calibrationExecutionResult)}
+                onApply={() => void applyCalibrationConfigRemediation({ execution: calibrationExecutionResult })}
+                onToggle={toggleCalibrationConfigRemediationTarget}
+              />
+            ) : null}
+            {executionRunning || visibleConsole.length ? (
+              <div className="calibration-live-console-panel">
+                <div>
+                  <strong>{executionRunning ? "Console ao vivo do Printora" : "Console registrado"}</strong>
+                  <span>
+                    {executionRunning
+                      ? "Atualiza automaticamente enquanto a impressora termina o comando."
+                      : "Trecho salvo com o resultado da execução."}
+                  </span>
+                </div>
+                {calibrationLiveConsoleError ? <small className="calibration-save-config-error">{calibrationLiveConsoleError}</small> : null}
+                <pre className="calibration-console-excerpt">
+                  {visibleConsole.length ? visibleConsole.join("\n") : "Aguardando novas linhas do console..."}
+                </pre>
+              </div>
+            ) : null}
             <details>
-              <summary>Retorno registrado</summary>
+              <summary>JSON técnico</summary>
               <pre>{formatCalibrationExecutionResult(calibrationExecutionResult)}</pre>
             </details>
           </div>
@@ -111,7 +277,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           <button type="button" className="secondary-button" onClick={() => setCalibrationExecuteTestKey(null)}>
             Cancelar
           </button>
-          {calibrationExecutionResult?.status === "executed" ? (
+          {executionCompleted ? (
             <button
               type="button"
               className="primary-button"
@@ -132,12 +298,52 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               setCalibrationExecutionConfirmation("EXECUTE_CALIBRATION_GCODE");
               void executeCalibrationGcode("EXECUTE_CALIBRATION_GCODE");
             }}
-            disabled={!selectedPrinterId || loading || !calibrationGcodeReviewed || !calibrationOperatorPresent || !calibrationPreflight || calibrationPreflight.blocked}
+            disabled={
+              !selectedPrinterId ||
+              loading ||
+              calibrationExecutionBusy ||
+              executionRunning ||
+              executionCompleted ||
+              !calibrationGcodeReviewed ||
+              !calibrationOperatorPresent ||
+              !calibrationPreflight ||
+              calibrationPreflight.blocked
+            }
           >
-            Executar agora
+            {calibrationExecutionBusy ? "Executando" : executionRunning ? "Acompanhando" : executionCompleted ? "Executado" : "Executar agora"}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function formatLiveTemperature(current: unknown, target: unknown) {
+  const currentLabel = typeof current === "number" ? `${Number(current.toFixed(1))} °C` : "-";
+  const targetLabel = typeof target === "number" ? `${Number(target.toFixed(1))} °C` : "-";
+  return `${currentLabel} / ${targetLabel}`;
+}
+
+function formatLivePosition(value: unknown) {
+  if (!Array.isArray(value)) {
+    return "-";
+  }
+  return value
+    .slice(0, 3)
+    .map((axis) => (typeof axis === "number" ? Number(axis.toFixed(2)) : axis))
+    .join(" / ");
+}
+
+function extractPidParametersFromConsole(lines: string[]) {
+  const match = lines
+    .join("\n")
+    .match(/pid_Kp=(?<kp>[0-9.]+)\s+pid_Ki=(?<ki>[0-9.]+)\s+pid_Kd=(?<kd>[0-9.]+)/);
+  if (!match?.groups) {
+    return null;
+  }
+  return {
+    kp: Number(match.groups.kp),
+    ki: Number(match.groups.ki),
+    kd: Number(match.groups.kd),
+  };
 }

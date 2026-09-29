@@ -1,0 +1,152 @@
+# Printora Agent
+
+Agente local read-only do Printora para hosts Klipper/Moonraker.
+
+## Comandos
+
+```bash
+printora-agent -config ~/.config/printora-agent/config.json config-sample
+printora-agent -config ~/.config/printora-agent/config.json doctor
+printora-agent -config ~/.config/printora-agent/config.json once
+printora-agent -config ~/.config/printora-agent/config.json run
+```
+
+## Config
+
+O config é JSON e deve ficar com permissão `0600`.
+
+```json
+{
+  "api_base_url": "https://printora.example.com",
+  "moonraker_url": "http://127.0.0.1:7125",
+  "credential_file": "/etc/printora-agent/credential",
+  "queue_file": "/var/lib/printora-agent/queue.jsonl",
+  "log_file": "/var/log/printora-agent/agent.log",
+  "interval_seconds": 10,
+  "timeout_seconds": 5,
+  "websocket_enabled": true,
+  "polling_enabled": true,
+  "max_payload_bytes": 65536,
+  "update_enabled": true,
+  "update_check_interval_seconds": 3600,
+  "update_manifest_url": "https://printora.example.com/api/agent/update/manifest",
+  "update_state_file": "/var/lib/printora-agent/update-state.json",
+  "update_staging_dir": "/var/lib/printora-agent/updates",
+  "job_journal_file": "/var/lib/printora-agent/job-journal.json",
+  "agent_binary_path": "/usr/local/bin/printora-agent",
+  "agent_service_name": "printora-agent",
+  "allow_service_restart": true
+}
+```
+
+O arquivo de credencial deve conter apenas a credencial operacional `ptr_agent_*`
+e deve ficar com permissão `0600`.
+
+## Segurança
+
+- O agente só faz chamadas de saída para a API.
+- O agente lê endpoints read-only do Moonraker por padrão.
+- O agente só envia G-code em jobs `remote_mutation_execute` criados após
+  preflight remoto, confirmação textual e expiração controlada pela API.
+- O agente não executa shell genérico, não reinicia Klipper/Moonraker, não faz
+  build e não faz flash. O updater reinicia somente o serviço `printora-agent`
+  quando habilitado.
+- Logs passam por redaction de tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`.
+- A fila local é JSONL limitada e guarda payload compacto quando a API está
+  indisponível.
+
+## Canal remoto
+
+O comando `run` mantém WebSocket outbound com `/api/agent/ws` e heartbeat
+periódico. Se o canal falhar, o agente continua reconectando com backoff
+limitado a 60s. Durante a reconexão, segue enviando heartbeat/snapshot por
+HTTPS e, se `polling_enabled` estiver ativo, usa polling para buscar jobs e
+enviar `ack`, `result` ou `error`.
+
+Jobs suportados nesta etapa:
+
+- `ping`: responde com `pong`.
+- `snapshot`: coleta snapshot read-only compacto do Moonraker.
+
+## Instalação assistida
+
+A tela Impressoras gera comandos com token curto por impressora. O script online
+fica em `/api/agent/install/linux.sh` e suporta:
+
+```bash
+--preflight
+--apply --yes
+--uninstall
+```
+
+O script troca o token por credencial operacional no próprio host, grava config
+com permissão restrita e instala serviço systemd. O uninstall remove serviço e
+binário, preservando configuração, fila e logs para rollback/diagnóstico.
+
+## Atualização
+
+```bash
+sudo printora-agent -config /etc/printora-agent/config.json update-check
+```
+
+O agente consulta `/api/agent/update/manifest`, valida plataforma, versão,
+protocolo, SHA-256 e assinatura Ed25519 antes de trocar o binário. A identidade
+da chave de release é fixada no binário; manifesto com algoritmo ou chave
+divergente é bloqueado. Antes do download, o agente exige
+`print_stats.state` ocioso; impressão, pausa ou estado indisponível bloqueiam o
+update. O restart automático reinicia somente o serviço `printora-agent` quando
+`allow_service_restart=true`. Falha de health/restart tenta restaurar o binário
+anterior.
+
+O recebimento do job é persistido antes do ACK, o início antes do efeito e o
+resultado antes do envio ao cloud em `job_journal_file`. Uma entrega repetida
+reenvia o resultado sem repetir o efeito. Se o agente reiniciar depois do ACK e
+antes de registrar o resultado de um job mutável, o job entra em reconciliação
+manual e não é executado novamente. O journal sincroniza arquivo e diretório,
+usa permissão `0600` e retém no máximo 200 entradas.
+
+Na instalação systemd padrão, o serviço roda como `root` para conseguir trocar o
+binário em `/usr/local/bin/printora-agent` e reiniciar o próprio serviço sem SSH.
+
+## Paridade remota
+
+O agente executa jobs read-only e dry-run enviados pela API:
+
+- `remote_audit`
+- `remote_snapshot`
+- `remote_health`
+- `remote_temperatures`
+- `remote_update_status`
+- `remote_can_status`
+- `remote_final_validation`
+- `remote_report_sanitized`
+- `remote_backup_preview`
+- `remote_operation_preview`
+- `remote_firmware_preview`
+
+Antes de enviar resultados, o agente sanitiza campos sensíveis como `password`,
+`token`, `secret`, `credential` e `private_key`.
+
+## Operação remota segura
+
+Jobs mutáveis suportados:
+
+- `remote_mutation_preflight`: coleta estado Moonraker/Klipper, detecta impressão
+  em andamento e retorna `can_execute`.
+- `remote_mutation_execute`: reexecuta preflight no agente e envia somente o
+  `command_preview` aprovado para `/printer/gcode/script`.
+
+O agente bloqueia execução quando Moonraker está indisponível, Klipper/Klippy
+não estão `ready` ou há impressão em andamento. O rollback vem no payload do job
+e volta no resultado para auditoria.
+
+## Suporte remoto
+
+Job de suporte:
+
+- `remote_doctor`: retorna versão, plataforma, protocolo, checks de config,
+  credencial, Moonraker, API, fila local e log tail sanitizado.
+
+O doctor remoto não executa shell genérico e não retorna credencial completa. O
+log tail passa pela mesma redaction de `ptr_agent_*`, `ptr_pair_*` e
+`ptr_sess_*` usada nos logs locais.

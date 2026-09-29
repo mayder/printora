@@ -1,0 +1,46 @@
+from app.modules.assembly import ModuleDefinition, RouterRegistration
+from app.routes import (
+    agents,
+    calibration,
+    can_monitor,
+    checklists,
+    firmware,
+    maintenance,
+    mesh_revisions,
+    operation,
+    photo_reconstruction,
+    printer_updates,
+    printers,
+    setup,
+    slicing,
+    slicing_profile_bundles,
+    z_offset,
+)
+from app.modules.operations import manufacturing_api
+from app.modules.operations.materials import routes as materials_routes
+
+
+MODULE = ModuleDefinition(
+    key="operations",
+    owner="Operação e agentes",
+    contract_version="1.0.0",
+    routers=(
+        RouterRegistration(20, agents.router),
+        RouterRegistration(50, calibration.router),
+        RouterRegistration(60, can_monitor.router),
+        RouterRegistration(70, checklists.router),
+        RouterRegistration(90, firmware.router),
+        RouterRegistration(100, maintenance.router),
+        RouterRegistration(110, operation.router),
+        RouterRegistration(115, photo_reconstruction.router),
+        RouterRegistration(116, mesh_revisions.router),
+        RouterRegistration(150, printer_updates.router),
+        RouterRegistration(160, printers.router),
+        RouterRegistration(190, setup.router),
+        RouterRegistration(200, slicing.router),
+        RouterRegistration(205, slicing_profile_bundles.router),
+        RouterRegistration(215, materials_routes.router),
+        RouterRegistration(310, z_offset.router),
+        RouterRegistration(550, manufacturing_api.router),
+    ),
+)

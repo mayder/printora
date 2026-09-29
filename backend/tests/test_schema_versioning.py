@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 
 import app.database as database_module
 from app.config import _default_data_dir, get_settings
-from app.database import DatabaseSchemaError, initialize_database
+from app.database import DatabaseSchemaError, connect_database, initialize_database
 from app.main import app
+from app.auth import AuthRepository, UserRegisterRequest
 
 
 def test_initialize_database_registers_sql_scripts_on_new_database(tmp_path: Path) -> None:
@@ -27,6 +28,17 @@ def test_initialize_database_registers_sql_scripts_on_new_database(tmp_path: Pat
             "SELECT app_name, version, schema_revision FROM app_version WHERE id = 1"
         ).fetchone()
         assert app_version == ("Printora", app.version, expected_scripts)
+
+
+def test_connect_database_closes_connection_after_context(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with connect_database(database_path) as connection:
+        assert connection.execute("SELECT 1").fetchone()[0] == 1
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
 
 
 def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path, monkeypatch) -> None:
@@ -48,7 +60,7 @@ def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path,
             ).fetchall()
         ]
     assert "._018_app_update_runs.sql" not in scripts
-    assert scripts[-1] == "025_setup_final_validation_runs.sql"
+    assert scripts[-1] == _latest_sql_script_name()
 
 
 def test_initialize_database_is_idempotent_and_preserves_existing_data(tmp_path: Path) -> None:
@@ -103,6 +115,29 @@ def test_initialize_database_does_not_create_backup_for_new_database(tmp_path: P
     initialize_database(database_path)
 
     assert _schema_backups(tmp_path) == []
+
+
+def test_older_release_cannot_lower_shared_schema_revision(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        current = connection.execute(
+            "SELECT schema_revision FROM app_version WHERE id = 1"
+        ).fetchone()[0]
+        connection.execute(
+            "UPDATE app_version SET schema_revision = ?, version = ? WHERE id = 1",
+            (current + 1, "future-release"),
+        )
+        connection.commit()
+
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        version, revision = connection.execute(
+            "SELECT version, schema_revision FROM app_version WHERE id = 1"
+        ).fetchone()
+    assert revision == current + 1
+    assert version == "future-release"
 
 
 def test_initialize_database_restores_original_database_when_sql_application_fails(
@@ -164,30 +199,58 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         payload = response.json()
         assert payload["app_name"] == "Printora"
         assert payload["version"] == app.version
-        assert payload["data_dir"] == str(tmp_path)
-        assert payload["database_path"] == str(tmp_path / "printora.db")
         assert payload["schema_revision"] == _sql_script_count()
         assert payload["schema_current"]["revision"] == _sql_script_count()
-        assert payload["schema_current"]["latest_script"] == "025_setup_final_validation_runs.sql"
-        assert payload["schema_scripts_applied"] == _sql_script_count()
-        assert len(payload["applied_sql_scripts"]) == _sql_script_count()
-        assert any(
-            script["script_name"] == "018_app_update_runs.sql"
-            for script in payload["applied_sql_scripts"]
-        )
-        assert payload["applied_sql_scripts"][0]["script_name"] == "000_schema_versioning.sql"
-        assert set(payload["applied_sql_scripts"][0]) == {
-            "script_name",
-            "execution_order",
-            "applied_at",
-        }
-        assert payload["latest_schema_script"].endswith(".sql")
+        assert payload["schema_current"]["latest_script"] == _latest_sql_script_name()
         assert payload["latest_integrity_status"] == "ok"
-        assert payload["latest_integrity_result"] == ["ok"]
-        assert payload["latest_validation"]["status"] == "ok"
-        assert payload["latest_validation"]["result"] == ["ok"]
+        assert "data_dir" not in payload
+        assert "database_path" not in payload
+        assert "applied_sql_scripts" not in payload
+        assert "latest_integrity_result" not in payload
         assert "printers" not in payload
         assert "payload_json" not in str(payload)
+    finally:
+        get_settings.cache_clear()
+
+
+def test_system_version_internal_endpoint_requires_support_user(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as client:
+            anonymous = client.get("/api/system/version/internal")
+            assert anonymous.status_code == 401
+
+            repository = AuthRepository(get_settings().database_path)
+            user = repository.create_user(
+                UserRegisterRequest(email="user@example.com", password="correct-horse")
+            )
+            user_token, _ = repository.create_session(user.id)
+            forbidden = client.get(
+                "/api/system/version/internal",
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+            assert forbidden.status_code == 403
+
+            support = repository.create_user(
+                UserRegisterRequest(email="breno@mayder.com.br", password="correct-horse")
+            )
+            support_token, _ = repository.create_session(support.id)
+            response = client.get(
+                "/api/system/version/internal",
+                headers={"Authorization": f"Bearer {support_token}"},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["data_dir"] == str(tmp_path)
+        assert payload["database_path"] == str(tmp_path / "printora.db")
+        assert len(payload["applied_sql_scripts"]) == _sql_script_count()
+        assert payload["latest_integrity_result"] == ["ok"]
+        assert payload["database_runtime"] == {
+            "backend": "sqlite",
+            "state": "available",
+        }
     finally:
         get_settings.cache_clear()
 
@@ -237,6 +300,51 @@ def test_initialize_database_blocks_completion_when_integrity_check_fails(
         assert record == (_sql_script_count(), "failed", '["simulated corruption"]')
 
 
+def test_initialize_database_does_not_repeat_full_integrity_check_without_schema_change(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    def unexpected_integrity_check(connection: sqlite3.Connection) -> list[str]:
+        raise AssertionError("integrity_check não deve rodar em restart sem mudança de schema")
+
+    monkeypatch.setattr(database_module, "_run_integrity_check", unexpected_integrity_check)
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM schema_integrity_checks").fetchone()[0]
+    assert count == 1
+
+
+def test_initialize_database_repairs_corrupt_materialization_cache(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("PRAGMA writable_schema = ON")
+        connection.execute(
+            "UPDATE sqlite_schema SET rootpage = 999999 WHERE name = 'social_materialization_state'"
+        )
+        connection.execute("PRAGMA writable_schema = OFF")
+        connection.commit()
+
+    initialize_database(database_path)
+
+    backups = _schema_backups(tmp_path)
+    with sqlite3.connect(database_path) as connection:
+        table = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'social_materialization_state'"
+        ).fetchone()
+        latest = connection.execute(
+            "SELECT script_name FROM schema_versions ORDER BY execution_order DESC LIMIT 1"
+        ).fetchone()
+    assert backups
+    assert table == ("social_materialization_state",)
+    assert latest == (_latest_sql_script_name(),)
+
+
 def _create_legacy_database(database_path: Path) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(database_path) as connection:
@@ -274,6 +382,10 @@ def _create_legacy_database(database_path: Path) -> None:
 
 def _sql_script_count() -> int:
     return len(list(database_module.SQL_DIR.glob("*.sql")))
+
+
+def _latest_sql_script_name() -> str:
+    return sorted(database_module.SQL_DIR.glob("[0-9]*.sql"))[-1].name
 
 
 def _schema_backups(data_dir: Path) -> list[Path]:

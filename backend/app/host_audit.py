@@ -1,12 +1,6 @@
-import asyncio
 import re
-from dataclasses import dataclass
-from typing import Literal
 
 from app.audit import AuditFinding
-
-
-HostAuditMode = Literal["disabled", "local", "ssh"]
 
 
 READ_ONLY_SCRIPT = r"""
@@ -57,93 +51,6 @@ tail -n 1600 /home/pi/printer_data/logs/klippy.log 2>/dev/null | grep -aEi 'erro
 printf '\nSECTION recent_moonraker_log\n'
 tail -n 1200 /home/pi/printer_data/logs/moonraker.log 2>/dev/null | grep -aEi 'error|traceback|exception|warning|failed|dirty|crowsnest|sonar|timelapse|spoolman' | tail -n 80
 """
-
-
-@dataclass(frozen=True)
-class HostAuditResult:
-    mode: HostAuditMode
-    executed: bool
-    exit_code: int | None
-    stdout: str
-    stderr: str
-    sections: dict[str, str]
-    findings: list[AuditFinding]
-
-
-async def collect_host_audit(
-    mode: HostAuditMode,
-    ssh_target: str,
-    timeout_seconds: float,
-) -> HostAuditResult:
-    if mode == "disabled":
-        return HostAuditResult(
-            mode=mode,
-            executed=False,
-            exit_code=None,
-            stdout="",
-            stderr="",
-            sections={},
-            findings=[
-                AuditFinding(
-                    id="host_audit_disabled",
-                    title="Auditoria do host desabilitada",
-                    category="host",
-                    classification="precisa_confirmacao",
-                    severity="info",
-                    detail="Configure host_audit_mode=local ou host_audit_mode=ssh para coletar dados do host.",
-                    safe_action="Em produção na Raspberry, preferir modo local. Em desenvolvimento, usar SSH com chave.",
-                )
-            ],
-        )
-
-    command = _build_command(mode, ssh_target)
-    process = await asyncio.create_subprocess_exec(
-        *command,
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(READ_ONLY_SCRIPT.encode()),
-            timeout=timeout_seconds,
-        )
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        return HostAuditResult(
-            mode=mode,
-            executed=True,
-            exit_code=None,
-            stdout="",
-            stderr="timeout",
-            sections={},
-            findings=[
-                AuditFinding(
-                    id="host_audit_timeout",
-                    title="Auditoria do host excedeu o tempo limite",
-                    category="host",
-                    classification="precisa_confirmacao",
-                    severity="warning",
-                    detail=f"timeout_seconds={timeout_seconds}",
-                    safe_action="Aumentar timeout ou validar conectividade SSH. Nenhuma alteração foi aplicada.",
-                )
-            ],
-        )
-
-    stdout = stdout_bytes.decode(errors="replace")
-    stderr = stderr_bytes.decode(errors="replace")
-    sections = split_sections(stdout)
-    findings = build_host_findings(process.returncode or 0, sections, stderr)
-    return HostAuditResult(
-        mode=mode,
-        executed=True,
-        exit_code=process.returncode,
-        stdout=stdout,
-        stderr=stderr,
-        sections=sections,
-        findings=findings,
-    )
 
 
 def split_sections(output: str) -> dict[str, str]:
@@ -216,20 +123,6 @@ def parse_can_summary(can_output: str) -> dict[str, object]:
         "tx_errors": _match_int(can_output, r"TX:.*?\n\s*\d+\s+\d+\s+(\d+)", flags=re.DOTALL),
         "bus_errors": _match_int(can_output, r"bus-errors.*?\n\s*\d+\s+(\d+)", flags=re.DOTALL),
     }
-
-
-def _build_command(mode: HostAuditMode, ssh_target: str) -> list[str]:
-    if mode == "local":
-        return ["bash", "-s"]
-    return [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "ConnectTimeout=5",
-        ssh_target,
-        "bash -s",
-    ]
 
 
 def _audit_systemctl(findings: list[AuditFinding], section: str) -> None:

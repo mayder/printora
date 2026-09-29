@@ -2,9 +2,686 @@
 
 ## Bugs Conhecidos
 
-Nenhum bug aberto de implementação registrado.
+O incidente de capacidade WAL foi corrigido, publicado e validado em produção
+em 2026-09-08, com evidência de exclusão automática e restore real abaixo.
 
 ## Bugs Corrigidos
+
+### Começar Pelas Fotos Falhava No PostgreSQL
+
+Estado: corrigido, publicado e retestado em produção em 2026-08-05.
+
+Reprodução:
+
+- abrir um projeto próprio, acessar `Digitalizar objeto`, confirmar o
+  consentimento e selecionar `Começar pelas fotos`;
+- a interface permanecia na preparação e exibia `Internal Server Error`.
+
+Causa:
+
+- as tabelas PostgreSQL da captura declaravam horários como `TIMESTAMPTZ`, mas
+  o adaptador compartilhado da aplicação grava horários como texto ISO;
+- a consulta seguinte também comparava a coluna booleana `is_current` com os
+  inteiros usados pelo SQLite, criando uma segunda falha latente.
+
+Correção:
+
+- um SQL incremental, reaplicável e limitado à captura converte os horários
+  existentes para o contrato textual compartilhado, sem remover registros;
+- consultas e substituições de foto passaram a parametrizar booleanos reais,
+  compatíveis com SQLite e PostgreSQL;
+- o E2E crítico agora inicia de fato a captura e exige os 24 campos, em vez de
+  validar somente a tela de preparação.
+
+Validação:
+
+- testes de repositório e de compatibilidade PostgreSQL cobrem criação,
+  retomada, envio, substituição, escala, conclusão e isolamento por usuário;
+- em produção, a sessão foi criada, as 24 posições receberam fotos aprovadas,
+  a escala foi confirmada e a captura chegou ao estado pronto sem erro técnico.
+
+### Criar Modelo 3D Falhava Com Linha PostgreSQL Nomeada
+
+Estado: corrigido e retestado localmente em 2026-08-05; publicação pendente.
+
+Reprodução:
+
+- concluir as 24 fotos, confirmar a escala e selecionar `Criar modelo 3D`;
+- a interface exibia `Internal Server Error` e não criava o trabalho.
+
+Causa:
+
+- a contagem de reconstruções ativas era lida pela posição `0`;
+- o adaptador PostgreSQL retorna linhas como mapeamentos nomeados, produzindo
+  `KeyError: 0` antes do enfileiramento;
+- o processamento e a revisão continham outras contagens posicionais e uma
+  comparação inteira com o booleano PostgreSQL, que falhariam nas etapas
+  seguintes.
+
+Correção:
+
+- todas as contagens do fluxo de reconstrução, correção e aprovação receberam
+  aliases explícitos e passaram a ser lidas pelo nome;
+- a seleção de fotos atuais passou a parametrizar o booleano real;
+- o teste de compatibilidade cobre os contratos que diferem entre SQLite e
+  PostgreSQL.
+
+Validação:
+
+- testes focados de captura, reconstrução e revisão de malha aprovados;
+- publicação só pode ser considerada concluída após criar o trabalho no
+  ambiente público e acompanhar o estado retornado pelo processador.
+
+### Meus Projetos Ficava Vazio Quando Apenas A Cota Falhava
+
+Sintoma:
+
+- o projeto pessoal existia e a API de listagem respondia com sucesso;
+- a tela aguardava e depois mostrava `0 projeto(s)`, armazenamento sem dados e
+  `Internal Server Error`.
+
+Causa:
+
+- o resumo de armazenamento acessava por posição uma linha que, no PostgreSQL,
+  é retornada por nome;
+- a interface agrupava lista e armazenamento em uma operação indivisível e
+  descartava a lista válida quando somente o resumo de armazenamento falhava.
+
+Correção:
+
+- a contagem adicional recebeu alias explícito e passou a ser lida pelo nome;
+- lista e armazenamento são carregados de forma independente;
+- falha isolada da cota mantém os projetos visíveis e mostra orientação local,
+  sem expor mensagem técnica genérica.
+
+Validação:
+
+- teste backend reproduz linha no formato de mapeamento do PostgreSQL;
+- teste frontend confirma que um projeto pessoal continua visível quando apenas
+  o armazenamento falha;
+- testes focados e build do frontend aprovados.
+
+### Update Falhava Sem Explicar Como Autorizar A Operacao
+
+Sintoma:
+
+- update de componente terminava com `autorização reforçada obrigatória`;
+- a tela não explicava como obter a autorização exigida;
+- a autorização genérica da conta usava outro propósito e não liberava o update.
+
+Causa:
+
+- o endpoint aceita apenas autorização descartável para operação física;
+- a tela de update tentava reutilizar um token armazenado, sem solicitar senha
+  ou código 2FA no contexto da ação.
+
+Correção:
+
+- o diálogo solicita senha ou código 2FA antes de iniciar update ou rollback;
+- a autorização usa o propósito específico de operação física e não é guardada
+  como autorização genérica da conta;
+- o acompanhamento usa o agente e não tenta conectar o navegador ao endereço
+  local `127.0.0.1` do Moonraker;
+- ausência ou falha de autenticação mantém o diálogo aberto com orientação
+  acionável e nenhum comando é enviado à impressora.
+
+### Moonraker Permanecia Offline Após O Agente Reconectar
+
+Sintoma:
+
+- o cabeçalho já exibia o agente online, mas o resumo mantinha Moonraker
+  offline por vários segundos ou até a revalidação de 60 segundos.
+
+Causa:
+
+- o frontend usava `??` entre fontes booleanas; um
+  `operationStatus.connected=false` antigo bloqueava um `health.connected=true`
+  mais recente;
+- várias consultas remotas eram iniciadas juntas antes do health rápido;
+- após falha transitória, a tela só revalidava em 60 segundos.
+
+Correção:
+
+- o health rápido passa a ser carregado antes das consultas operacionais
+  pesadas;
+- qualquer leitura atual válida que confirme conexão atualiza o indicador;
+- com agente online e Moonraker ainda não confirmado, health e operação são
+  revalidados sequencialmente a cada 3 segundos;
+- com agente offline, apenas a presença é consultada a cada 10 segundos, sem
+  criar jobs Moonraker desnecessários.
+
+Segurança:
+
+- agente online não implica Moonraker online; falha real continua visível e
+  ações permanecem bloqueadas.
+
+### Preview 3D Falhava Com Nome De G-code Unicode
+
+Sintoma:
+
+- ao iniciar uma nova impressão com caracteres Unicode no nome do arquivo, a
+  peça continuava imprimindo, mas a Operação exibia `Preview 3D indisponível`;
+- a mensagem genérica mencionava timeout do gateway e o preview não tentava se
+  recuperar sozinho.
+
+Causa:
+
+- o agente enviava o nome original em um cabeçalho HTTP, que podia chegar
+  alterado ao backend quando continha caracteres fora de ASCII;
+- a validação do cache recalculava outra chave e recusava o upload com `409`;
+- a UI fazia somente uma tentativa de preparar e carregar o cache.
+
+Correção:
+
+- o backend recupera o nome canônico do G-code no job de cache autenticado e
+  ativo, sem confiar no valor alterado do cabeçalho;
+- jobs equivalentes de cache são coalescidos para impedir duplicação;
+- o preview repete automaticamente falhas recuperáveis de cache/gateway com
+  espera progressiva e cancela as tentativas quando a tela é desmontada.
+
+Validação:
+
+- testes backend cobrem nome Unicode recuperado pelo job, chave sem
+  correspondência e coalescência;
+- testes frontend cobrem recuperação após `502` e ausência de repetição em
+  erro permanente `404`;
+- 49 testes backend, 4 testes frontend focados e build com Node `22.22.0`
+  aprovados;
+- nenhuma ação mutável foi executada na impressora durante a validação.
+
+### Operacao Repetia Leitura E Acusava Agente Desatualizado Durante Carregamento
+
+Sintoma:
+
+- a primeira abertura da aba Operacao podia demorar mais que a primeira resposta válida;
+- enquanto os dados ainda não tinham chegado, o card `Impressão` mostrava incorretamente que o agente precisava atualizar.
+
+Causa:
+
+- o carregamento do detalhe e o polling da Operacao podiam iniciar a mesma leitura ao mesmo tempo;
+- a resposta mais rápida era descartada pela sequência da segunda requisição;
+- versão ausente durante o carregamento era tratada como versão inferior a `0.1.31`.
+
+Correção:
+
+- leituras simultâneas da mesma impressora reutilizam a requisição já em andamento;
+- o botão e o painel mostram carregamento explícito sem anunciar Moonraker offline;
+- o aviso de update aparece somente quando a versão instalada foi recebida e é realmente inferior ao mínimo.
+
+Validação:
+
+- testes unitários cobrem coalescência da leitura, estado de carregamento e ausência do aviso falso;
+- build e validação focada do frontend.
+
+### Dashboard E Arquivos G-code Sobrepunham Texto No Celular
+
+Sintoma:
+
+- rótulos como `Offline/degradadas` e `Desatualizados` invadiam os valores da
+  Visão geral;
+- upload, Pastas e Ações em lote juntavam título e descrição sem espaço;
+- cada arquivo G-code virava um cartão vertical excessivamente alto, inclusive
+  com metadados vazios.
+
+Causa:
+
+- a regra responsiva do dashboard mantinha uma coluna de rótulo menor que o
+  texto e permitia vazamento visível;
+- títulos e descrições dos painéis G-code permaneciam inline;
+- a tabela mobile apenas empilhava todas as células do desktop.
+
+Correção:
+
+- métricas do dashboard empilham rótulo e valor abaixo de 720 px;
+- entre 721 e 1240 px, a coluna de rótulo reserva largura suficiente para a
+  fonte do navegador em Linux e macOS;
+- upload e gerenciador usam blocos com espaçamento, padding e controles de
+  largura total no mobile;
+- cartões de arquivo usam duas colunas entre 361 e 720 px, uma coluna abaixo
+  disso, ocultam somente metadados sem valor e permitem quebra segura do nome.
+
+Validação:
+
+- regressão E2E verifica vazamento de texto, 320x568, 390x844, metadados vazios,
+  altura dos cartões e ausência de overflow;
+- `npm --prefix frontend run build`;
+- `npm --prefix frontend run test:unit`;
+- `scripts/run-e2e-gate.sh`: 22/22 testes aprovados.
+- o primeiro deploy foi bloqueado com segurança pelo mesmo teste em 1024 px e
+  o segundo expôs a regra-base de 140 px em 1440 px;
+- a coluna segura foi aplicada tanto na base quanto no breakpoint intermediário;
+  após o ajuste, o reteste E2E e `./check.sh` passaram.
+
+### Verificação Ed25519 Do Instalador Era Dependente Do OpenSSL Local
+
+Sintoma:
+
+- o instalador podia rejeitar o artefato válido `0.1.34` durante o gate completo;
+- a mesma assinatura passava isoladamente, tornando o teste intermitente.
+
+Causa:
+
+- a validação dependia de `openssl pkeyutl -rawin`, cujo suporte/comportamento
+  para Ed25519 varia entre versões e ambientes.
+
+Correção:
+
+- checksum e assinatura agora são verificados por Python padrão com chave pública
+  fixada, sem depender de OpenSSL;
+- assinatura malformada, não canônica, inválida e checksum adulterado falham
+  fechado antes da instalação.
+
+Validação:
+
+- teste focado repetido 100 vezes sem falha;
+- artefato válido aceito e checksum/assinatura adulterados rejeitados;
+- `./check.sh` completo passou com 569 testes Python e gate de cobertura.
+
+### Operacao Concluida Nao Mostrava A Ultima Impressao
+
+Sintoma:
+
+- ao terminar uma impressao, a aba Operacao passava para `complete`, mas o card `Impressao` exibia apenas estado generico/lista curta de G-codes;
+- o operador perdia o preview 3D e os dados finais da peca recem-impressa.
+
+Causa:
+
+- o frontend tratava `complete` como estado ocioso comum;
+- o contrato de G-code usado na lista curta nao preservava `print_end_time`, reduzindo a confiabilidade para escolher o ultimo trabalho concluido.
+
+Correcao:
+
+- `complete` agora seleciona o G-code da operacao finalizada, ou o ultimo arquivo confiavel quando o nome ativo nao estiver disponivel;
+- o preview usa o viewer 3D em modo completo e apresenta camada/progresso finais;
+- backend e agente preservam `print_end_time` na lista compacta de G-codes.
+
+Validacao:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py tests/test_gcode_files.py -q`;
+- `cd agent && go test ./internal/agent`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Preview De Impressao Avancava Durante QGL Sem Material
+
+Sintoma:
+
+- ao iniciar uma impressao, durante QGL/preparo, o card `Impressao` podia mostrar camadas futuras como ja impressas;
+- o problema aparecia mesmo com `display` em 0% e `filamento` em 0 mm.
+
+Causa:
+
+- backend, frontend e agente aceitavam camada informada/estimada quando `print_stats.state=printing`, mesmo antes de qualquer extrusao real;
+- o viewer tambem podia tratar progresso ausente como arquivo completo.
+
+Correcao:
+
+- camada e posicao do G-code agora so movimentam a previa quando existe progresso material por filamento ou progresso real do display;
+- mensagens de preparo como QGL, homing e bed mesh preservam total de camadas/thumbnail, mas bloqueiam `layer_preview` ate a primeira extrusao;
+- o viewer passa a iniciar em zero quando nao ha progresso valido.
+
+Validacao:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `cd agent && go test ./...`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Lateral Do Preview De Impressao Ficava Vazia E Truncava Titulos
+
+Sintoma:
+
+- no card `Impressao`, o lado direito deixava area vazia ao lado/abaixo da imagem do modelo;
+- os titulos da previsualizacao apareciam abreviados como `T...` e `Ca...`, mesmo com espaco disponivel.
+
+Causa:
+
+- o thumbnail era renderizado como bloco isolado e competia mal com a lista de fatos;
+- os titulos do `PrintVisual` usavam limite percentual fixo, encolhendo textos curtos em larguras intermediarias.
+
+Correcao:
+
+- a lateral direita passou a combinar thumbnail, progresso, fatos principais, metadados e Machine em uma composicao mais densa;
+- os titulos do visual passaram a usar largura natural quando houver espaco.
+
+Validacao:
+
+- `cd frontend && npm run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Preview 3D Em 100 Por Cento Continuava Parecendo Parcial
+
+Sintoma:
+
+- com a impressao concluida, o card `Impressao` ainda mostrava a cena 3D como poucas linhas;
+- thumbnail e cena competiam pela area principal, deixando a cena menor e criando buracos na composicao.
+
+Causa:
+
+- o agente limitava a previsualizacao interativa a uma amostra pequena do G-code;
+- o layout tratava thumbnail e cena como visuais equivalentes, em vez de usar a cena como area principal e o thumbnail como apoio.
+
+Correcao:
+
+- agente 0.1.28 aumenta o cache de segmentos do G-code e envia uma amostra interativa mais densa dentro do limite seguro de payload;
+- o card `Impressao` passa a renderizar a cena 3D como painel principal e move o thumbnail para a lateral direita com os dados da impressao;
+- em impressao completa, o material ja impresso ganha mais contraste para nao parecer apenas a camada atual.
+
+Validacao:
+
+- `cd agent && go test ./...`;
+- `cd frontend && npm run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Preview 3D Da Operacao Sobrepunha Controles E Texto
+
+Sintoma:
+
+- no card `Impressão`, os controles de rotação/zoom ficavam sobre textos de estado da prévia;
+- o navegador 3D aparecia grudado em contador de segmentos;
+- em larguras intermediárias, thumbnail, cena de camada e dados da impressão ficavam comprimidos e a cena parecia um emaranhado de linhas.
+
+Causa:
+
+- a prévia usava a mesma área absoluta para botões, notas e contador;
+- a cena renderizava o material impresso e a camada atual só como linhas, com pouca diferença visual entre histórico e camada corrente;
+- o grid do card mantinha três blocos lado a lado mesmo quando a largura útil já estava reduzida.
+
+Correção:
+
+- controles, navegador e nota parcial passaram a ocupar áreas separadas;
+- o viewer reduz o peso das linhas antigas, mantém o material já impresso discreto e destaca a camada atual;
+- a grade de `Impressão` empilha fatos/Machine em larguras intermediárias e evita compressão/overlap.
+
+Validação:
+
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Operacao Ficava Vazia Durante Impressao Com Preview Do G-code
+
+Sintoma:
+
+- durante uma impressao ativa, a aba Operacao mostrava agente online no topo, mas o painel em tempo real ficava como Moonraker offline/sem leitura;
+- requests de status podiam ficar pendentes e terminar sem restaurar temperaturas, progresso, thumbnail e Miscellaneous.
+
+Causa:
+
+- `remote_operation_status` passou a incluir thumbnail, camada e cena derivada do G-code;
+- respostas de job com dados visuais podiam ultrapassar 64 KB;
+- o backend aplicava o mesmo limite de payload de comando ao resultado do job do agente e rejeitava a resposta com 413.
+
+Correção:
+
+- o limite de comando/snapshot permanece em 64 KB;
+- resultados de job do agente passam a aceitar ate 512 KB, suficiente para respostas operacionais com preview visual controlado.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_agent_channel.py tests/test_operation.py tests/test_agent_executor.py -q`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Timeout Da Operacao Parecia Instantaneo
+
+Sintoma:
+
+- a aba Operacao podia mostrar indisponibilidade/timeout muito rapido depois de atualizar;
+- quando o WebSocket do agente nao confirmava entrega, a leitura ficava dependente do polling de 10s do agente e podia estourar a janela de 10s da rota;
+- falhas rapidas do job do agente ficavam visualmente parecidas com timeout real.
+
+Causa:
+
+- o executor do agente ignorava se o job foi entregue por WebSocket ou ficou apenas enfileirado para polling;
+- a rota de Operacao usava a mesma janela curta de leituras simples, mesmo depois de incluir metadata e previsualizacao de G-code;
+- a tela recebia mensagens derivadas de `HTTPException` sem contexto suficiente do estado do job.
+
+Correção:
+
+- o executor agora diferencia timeout com job pendente, polling sem entrega via WebSocket e job em andamento;
+- a rota de Operacao usa janela maior para `remote_operation_status`, cobrindo polling + leitura pesada;
+- mensagens de indisponibilidade foram sanitizadas para explicar o estado sem expor `504` bruto.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Operacao Offline Mostrava Timeout Cru E Paineis Vazios Grandes
+
+Sintoma:
+
+- quando o agente demorava para responder, a aba Operacao exibia `504: timeout aguardando resposta do agente`;
+- sem thumbnail ou previsualizacao de camada, o card de Impressao mantinha dois blocos altos vazios e criava buracos na tela.
+
+Causa:
+
+- o backend propagava `str(HTTPException)`, incluindo o codigo HTTP na mensagem de produto;
+- o frontend sempre montava a grade visual de Impressao, mesmo quando nao havia dado renderizavel.
+
+Correção:
+
+- o backend sanitiza timeout do agente em mensagem operacional curta;
+- a aba Operacao mostra estado compacto quando nao recebe thumbnail/camada/cena do G-code;
+- o aviso offline usa estado informativo, sem alerta bruto de infraestrutura.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Progresso Da Operacao Perdeu Precisao Do Display E Faltava Metadata Da Peca
+
+Sintoma:
+
+- a aba Operacao passou a mostrar o percentual igual ao Mainsail, adiantado em relacao ao display da impressora;
+- o card de Impressao mostrava poucos detalhes da peca em andamento, sem estimativa, restante, camada total/current quando o `print_stats` nao entregava esses campos.
+
+Causa:
+
+- o progresso principal estava priorizando `virtual_sdcard.progress`;
+- o agente nao buscava a metadata do G-code atual via `print_stats.filename`, entao o backend nao tinha `estimated_time`, slicer, filamento, altura/camada e dados para fallback de camada.
+
+Correção:
+
+- agente 0.1.24 busca `/server/files/metadata?filename=<arquivo>` quando ha impressao carregada;
+- Operacao voltou a priorizar `display_status.progress` como percentual principal e manteve `virtual_sdcard.progress` como progresso de arquivo;
+- card de Impressao exibe tempo restante, conclusao estimada, estimativa, progresso de arquivo, filamento, slicer, material e camada derivada de metadata/Z quando necessario.
+
+Validação:
+
+- `cd agent && go test ./...`;
+- `cd backend && uv run --extra dev pytest tests/test_operation.py tests/test_agent_updates.py tests/test_agent_install.py tests/test_agent_support.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Agente Nao Entregava Valores De Miscellaneous Com Objetos Dinamicos
+
+Sintoma:
+
+- a aba Operacao detectava objetos Miscellaneous como `T0 Partfan`, `Nevermore`, `Controller Fan` e `Caselight`, mas nao recebia os valores para renderizar controles/leitura.
+
+Causa:
+
+- a query dinamica do agente usava codificacao menos tolerante para nomes de objetos Klipper com espacos;
+- fans e output pins dinamicos eram consultados com campos especificos, o que deixava o coletor mais fragil contra variacoes de objeto/field retornadas pelo Moonraker.
+
+Correção:
+
+- agente 0.1.23 consulta objetos dinamicos com `%20` em nomes com espaco;
+- fans e output pins dinamicos passam a ser consultados sem restringir campos, preservando `speed`/`value` quando o Moonraker os retorna.
+
+Validação:
+
+- `cd agent && go test ./...`;
+- `cd backend && uv run --extra dev pytest tests/test_agent_updates.py tests/test_agent_install.py tests/test_agent_support.py tests/test_operation.py -q`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### Miscellaneous Ficava Vazio Quando O Agente Nao Entregava Status Dinamico
+
+Sintoma:
+
+- a aba Operacao mostrava `Nenhum fan, luz ou LED retornado pelo Moonraker`, mesmo com Caselight/fans visiveis no Mainsail.
+
+Causa:
+
+- o backend renderizava Miscellaneous apenas a partir de valores em `status`;
+- quando a lista dinamica de objetos nao vinha do agente, ou quando objetos eram detectados sem valores, a UI tratava como se nao existisse nada configurado.
+
+Correção:
+
+- o contrato de Operacao agora informa `collection_state`, objetos detectados e objetos sem leitura de status;
+- a UI mostra estado acionavel quando o agente nao entregou a lista dinamica ou quando detectou objetos sem valores.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### KPIs Da Operacao Ficavam Encostados No Bloco De Baixo
+
+Sintoma:
+
+- na aba Operacao do detalhe da impressora, a faixa de KPIs ao vivo ficava colada no card de Temperaturas/Impressao.
+
+Causa:
+
+- o `display:grid` e o `gap` do dashboard estavam escopados apenas para `.section-monitoring`;
+- quando o mesmo componente abria dentro de `.section-printer-detail`, a regra global `.section-printer-detail .panel-section` tinha mais especificidade e mantinha o painel como bloco sem `gap`.
+
+Correção:
+
+- o layout base de `.monitoring-dashboard` passou a ter seletor especifico tambem para `.section-printer-detail`.
+
+Validação:
+
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
+### Lista De Impressoras Bloqueava Acoes Por Loading Global
+
+Sintoma:
+
+- ao abrir Impressoras com uma Voron offline validando agente, os botoes de `Detalhar` da Voron offline e da Voron online ficavam desabilitados;
+- o loading exibido no refresh do badge `Agente offline` segurava a lista inteira.
+
+Causa:
+
+- a tela usava o `loading` global da aplicacao para todos os botoes de todos os cards.
+
+Correção:
+
+- acoes de card usam busy local por `printer.id` e tipo de acao;
+- `Detalhar`, `Editar` e `Contexto rapido` nao dependem mais do loading de outra impressora;
+- refresh de agente, leitura de status e snapshot mostram busy apenas no card acionado.
+
+Validação:
+
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
+### Miscellaneous Da Operacao Nao Refletia Mainsail
+
+Sintoma:
+
+- Caselight aparecia no Printora como LED manual vazio/0%, enquanto no Mainsail estava ligado em 25%;
+- fans `fan_generic`, `heater_fan` e `controller_fan` nao apareciam no painel Miscellaneous;
+- acao leve de luz/fan podia pedir autenticacao reforcada ou parecer timeout logo apos o clique.
+
+Causa:
+
+- o agente consultava apenas objetos fixos e nao trazia `output_pin`, fans dinamicos e LEDs reais do Moonraker;
+- o frontend dependia de um campo manual de LED em vez de renderizar os objetos vivos;
+- o endpoint de execucao direta exigia step-up para qualquer acao autenticada.
+
+Correção:
+
+- agente 0.1.22 coleta objetos Mainsail-like de Miscellaneous: `output_pin`, `fan_generic`, `heater_fan`, `controller_fan` e LEDs;
+- Operacao classifica Caselight/output pins, fans controlaveis, fans somente leitura e indicadores LED;
+- acoes leves `set_fan`, `set_output_pin` e `set_led` nao exigem step-up e podem rodar durante impressao.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py tests/test_agent_updates.py tests/test_agent_install.py tests/test_agent_support.py -q`;
+- `cd agent && go test ./...`;
+- `npm --prefix frontend run build`.
+
+### Grafico De Temperatura Da Operacao Ficava Sem Serie
+
+Sintoma:
+
+- durante impressao, a tabela da Operacao mostrava temperaturas corretas, mas o grafico permanecia sem linha;
+- o progresso podia seguir uma leitura adiantada de display em vez do progresso real do arquivo virtual.
+
+Causa:
+
+- a tela substituia o status ao vivo a cada refresh e nao acumulava historico local de temperatura;
+- quando havia apenas uma leitura, o SVG gerava `polyline` com um unico ponto, que nao desenha linha visivel;
+- o backend lia `display_status.progress` antes de considerar `virtual_sdcard.progress`.
+
+Correção:
+
+- a Operacao passa a manter historico local das leituras ao vivo durante a sessao aberta;
+- uma leitura isolada desenha linha horizontal para evitar grafico aparentemente vazio;
+- o progresso prioriza `virtual_sdcard.progress` e usa `display_status.progress` apenas como fallback.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
+### Metrica De CPU Do Agente Inflava Consumo
+
+Sintoma:
+
+- a tela de detalhe do agente podia mostrar `printora-agent` consumindo CPU alto em idle, como ~9%, enquanto Moonraker/Klipper apareciam zerados.
+
+Causa:
+
+- o coletor calculava CPU com duas leituras de `/proc` em uma janela curta de 200 ms;
+- em Raspberry, o trabalho da própria coleta podia entrar nessa janela e inflar o percentual do processo `printora-agent`.
+
+Correção:
+
+- a coleta passa a guardar a amostra anterior de processos e calcular CPU pelo delta real entre snapshots cacheados;
+- a pausa artificial de 200 ms foi removida;
+- a primeira coleta não sintetiza percentual de CPU quando ainda não há amostra anterior.
+
+Validação:
+
+- `cd agent && go test ./...`;
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
+### Social Travava E Sessao Piscava Login
+
+Sintoma:
+
+- a tela Social demorava para carregar e podia derrubar a navegacao;
+- apos F5, a aplicacao podia mostrar login antes de restaurar a sessao e voltar sozinha para Social;
+- catalogo, comunidades e makers pareciam sumir quando o backend ficava sem responder.
+
+Causa:
+
+- endpoints publicos de leitura social sincronizavam comunidades e feed padrao no SQLite a cada consulta;
+- com concorrencia, essas escritas podiam disputar lock e bloquear o worker unico do backend;
+- o frontend renderizava a tela de login enquanto ainda validava token salvo.
+
+Correção:
+
+- sincronizacao de comunidades/feed movida para startup e mutacoes de catalogo/publicacao de impressora;
+- leituras sociais passam a consultar dados ja materializados sem escrita por refresh;
+- restauracao de sessao ganhou estado explicito antes de exibir login;
+- bootstrap da sessao evita carregamento duplicado para o mesmo usuario.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -q`;
+- `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ### Modal Do Updater Ficava Preso Apos Restart
 
@@ -280,6 +957,39 @@ Validação:
 
 - `npm run build` no frontend.
 
+### Warnings Runtime Do Klipper Visíveis No Mainsail Não Chegavam Ao Printora
+
+Sintoma:
+
+- o Mainsail exibia warnings como MCU com código obsoleto por ausência de
+  `i2c_transfer` ou `STEPPER_STEP_BOTH_EDGE`, mas a Central do Printora não
+  apresentava o alerta;
+- erros críticos recentes do console Klipper também podiam ficar restritos ao
+  Mainsail.
+
+Causa:
+
+- o agente consultava estado, objetos e Update Manager somente por HTTP, sem
+  coletar o histórico recente de respostas G-code usado pelo Mainsail;
+- o backend não possuía classificação operacional para warning runtime e erro
+  crítico do Klipper.
+
+Correção:
+
+- o agente passou a consultar `/server/gcode_store` em modo somente leitura e
+  envia apenas mensagens reconhecidas como warning ou erro crítico, deduplicadas,
+  sanitizadas e limitadas;
+- o health classifica firmware MCU obsoleto como `warning` e comunicação,
+  protocolo, shutdown, temporização e temperatura críticos como `blocker`;
+- a Central abre o monitoramento da impressora afetada e mantém mensagens
+  normais do console fora do payload.
+
+Validação:
+
+- testes Go cobrem coleta, filtro, deduplicação, sanitização e indisponibilidade;
+- testes Python cobrem as famílias de severidade e a decisão de impressão;
+- teste frontend cobre o encaminhamento do alerta para Monitoramento.
+
 ### Timeout No Envio De G-code De Calibração
 
 Sintoma:
@@ -426,3 +1136,570 @@ Rollback:
 - parar o app;
 - restaurar o backup `printora.<timestamp>.before-schema.db` para `printora.db`;
 - reiniciar o app e validar `GET /api/system/version`.
+
+### Restore PostgreSQL Pode Saturar O Disco Compartilhado
+
+Um restore físico sem limite de I/O no mesmo host elevou a latência do processo
+web durante a validação de 2026-07-22. O backup permaneceu íntegro, mas o ensaio
+precisou ser interrompido e repetido com limite de leitura/escrita.
+
+Mitigação:
+
+- restaurar somente base, dump, manifesto e o WAL final necessário;
+- executar o cluster temporário com CPU e I/O limitados por systemd;
+- usar `fsync=off` somente no cluster efêmero descartável de validação;
+- encerrar o cluster efêmero sem checkpoint e remover apenas o diretório exato;
+- monitorar `/health` público e interromper somente o ensaio se passar de 5 s;
+- nunca reduzir durabilidade do cluster PostgreSQL de produção.
+
+### Agente Alterado Sem Nova Versão Pública
+
+Impacto:
+
+- o código do agente recebeu alterações de reconnect/blue-green depois do
+  artefato `0.1.33`;
+- o manifesto e o SHA-256 público continuam apontando ao binário anterior;
+- agentes instalados não recebem essas alterações como uma nova versão.
+
+Mitigação:
+
+- resolver no `PKG-96` com versão `0.1.34`, build reproduzível, assinatura,
+  canário real, rollback e atualização do manifesto;
+- nunca substituir conteúdo mantendo o mesmo número de versão.
+
+### Gate Frontend Aceita Node Não Suportado E Cobertura Zero
+
+Impacto:
+
+- Vite avisa que Node 18 não é suportado, mas o build pode encerrar com sucesso;
+- cobertura mínima está desativada e não bloqueia regressão;
+- os testes frontend atuais não equivalem a uma suíte E2E completa.
+
+Mitigação:
+
+- Node, build e cobertura foram corrigidos nos lotes 1 a 4 do `PKG-97`;
+- E2E, fuzzing e mutation testing foram implantados nos lotes 5 a 8;
+- o risco remanescente é o pentest independente dos lotes 9 e 10, ainda não
+  executado e obrigatório antes de fechar o pacote.
+
+### APIs Sombreadas Pelo Fallback Frontend
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- o router catch-all do frontend podia ser registrado antes de APIs declaradas
+  depois dele, devolvendo HTML da SPA para uma chamada `/api/*`;
+- o erro só aparecia no fluxo integrado, embora testes unitários das rotas
+  passassem isoladamente.
+
+Correção:
+
+- fallback frontend movido para a última ordem de registro;
+- teste de fronteira garante que nenhum router de API venha depois dele;
+- Playwright executa backend e frontend reais e passa nos fluxos P0/P1.
+
+### Layout Administrativo Colapsava Em Desktop
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- Finanças, Fabricação e Dados e inteligência ocupavam somente a primeira das
+  12 colunas da grade global;
+- em Fabricação, lista e detalhe sobrepunham texto e tornavam a tela
+  impraticável no desktop.
+
+Correção:
+
+- containers administrativos agora ocupam `grid-column: 1 / -1`, largura total
+  e `min-width: 0`;
+- E2E verifica a largura mínima de Fabricação em desktop/mobile;
+- validação visual confirmou lista/detalhe sem sobreposição.
+
+### Fuzz Encontrou Porta URL Inválida E Traversal G-code Codificado
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- uma URL HTTPS com porta sintaticamente inválida podia escapar da validação
+  antes de o acesso à propriedade `port` lançar erro;
+- paths G-code absolutos, com NUL ou traversal URL-encoded/duplamente encoded
+  não eram recusados de forma uniforme.
+
+Correção:
+
+- validação de URL força parsing seguro da porta e falha fechado;
+- paths G-code rejeitam NUL, absolutos e traversal após até duas decodificações;
+- corpus/seed e properties reproduzem os casos e passam em perfil determinístico
+  e fuzz aleatório.
+
+### Administrador De Plataforma Embutido Em Nove Rotas
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- autorização administrativa dependia de um email pessoal repetido em nove
+  fronteiras;
+- ambiente isolado não conseguia usar identidade sintética para pentest;
+- rotação exigiria mudança de código e poderia divergir entre módulos.
+
+Correção:
+
+- política única em `platform_access.is_platform_admin`;
+- lista configurável por `PRINTORA_PLATFORM_ADMIN_EMAILS`, normalizada e
+  fail-closed;
+- configuração vazia nega todos e identidade inválida interrompe a leitura;
+- cadastro público de qualquer email configurado como administrador retorna
+  `403`; essas contas são criadas somente por canal operacional;
+- teste de fronteira impede novo email administrativo embutido no runtime.
+
+### Resposta De Sessão Concorrente Reabria A Interface Após Logout
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- uma leitura `/api/auth/me` iniciada antes do logout podia terminar depois da
+  revogação e restaurar o usuário no estado local;
+- o backend revogava a sessão corretamente, mas a interface permanecia aberta
+  até as demais chamadas protegidas responderem `401`.
+
+Correção:
+
+- cada encerramento ou expiração incrementa a geração local da autenticação;
+- respostas de leitura iniciadas em geração anterior são descartadas;
+- o E2E confirma a resposta `200` do logout e a transição para a tela de login.
+
+### Preview 3D Quebrava Em Abas Abertas Após Publicação
+
+Estado: corrigido em 2026-07-23.
+
+Impacto:
+
+- uma aba aberta antes da publicação podia tentar carregar um chunk antigo do
+  visualizador G-code, como `/assets/sindarius-gcodeviewer...js`;
+- como o backend servia somente os assets do release atual, o navegador recebia
+  `404` e a Operação mantinha `Preview 3D indisponível` durante a impressão.
+
+Correção:
+
+- `/assets/*` agora resolve o arquivo atual e, se ele não existir, procura o
+  mesmo asset nos releases anteriores ainda presentes no servidor;
+- paths suspeitos e extensões fora da lista de assets continuam bloqueados;
+- teste unitário cobre asset atual, fallback de release anterior e traversal.
+
+### Detalhe Da Impressora Cortava Abas No Celular
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- o strip de status importado depois do CSS global restaurava três colunas com
+  largura intrínseca próxima de 610 px;
+- o cabeçalho e a barra de abas ultrapassavam o viewport em 390 px;
+- abas da segunda coluna apareciam cortadas e não podiam ser abertas.
+
+Correção:
+
+- cabeçalho e strip zeram `min-width`, limitam a largura ao container e usam uma
+  coluna abaixo de 920 px;
+- todas as nove abas foram abertas em navegador real a 390 px;
+- E2E repete a abertura em 320 px e bloqueia overflow não contido.
+
+### Lista De Agentes Era Cortada Em Largura Intermediária
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- em 1024 px, a sidebar reduzia a área útil sem ativar o breakpoint de 900 px;
+- as colunas Último contato e Ações ficavam fora da tela e o container escondia
+  o excedente.
+
+Correção:
+
+- a tabela admite rolagem horizontal segura quando necessária;
+- até 1240 px, linhas viram cartões com rótulos explícitos e ações acessíveis;
+- a matriz E2E cobre as catorze rotas autenticadas em cinco resoluções.
+
+### Ações Administrativas Ultrapassavam 320 Px
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- ações com texto longo mantinham uma linha dentro de resultados flexíveis;
+- o link para Projetos ultrapassava o viewport mínimo.
+
+Correção:
+
+- resultados empilham conteúdo e ações abaixo de 920 px;
+- botões e links podem quebrar texto sem exceder o container;
+- o detector E2E de overflow valida 320, 390, 768, 1024 e 1440 px.
+
+### Componentes Restauravam Larguras De Desktop No Mobile
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- regras locais carregadas depois do CSS global restauravam grids e larguras
+  mínimas de desktop em Firmware e Manutenção;
+- formulário, cartões, filtros e linhas de token administrativo podiam exceder
+  320 px mesmo com o shell responsivo.
+
+Correção:
+
+- Firmware reorganiza foco, resultado, placas, referências e formulários em uma
+  coluna abaixo de 920 px;
+- filtros de Manutenção e linhas de token administrativo quebram para grids
+  compactos;
+- o reteste em navegador real confirmou formulários e ações dentro de 320 px.
+
+### Cabeçalho Do Sistema Bloqueava Ações De Modais
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- o backdrop dos modais usava uma camada inferior à do cabeçalho fixo;
+- em desktop e celular, o modal era visível, mas o cabeçalho interceptava o
+  clique em Fechar e podia encobrir outros controles superiores;
+- o defeito afetava cadastro de impressora, manutenção e relatórios.
+
+Correção:
+
+- modais passaram a ocupar uma camada acima do shell, menus e popovers;
+- o E2E abre, mede e fecha os modais representativos em cinco dimensões;
+- nenhuma ação real de impressora, backup ou restore é executada no reteste.
+
+### Projetos De Impressão Falhavam No PostgreSQL
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- a consulta agregada agrupava somente pela chave do projeto;
+- o SQLite aceitava as colunas do arquivo primário sem agrupamento explícito,
+  mas o PostgreSQL respondia `500` ao exigir `pf.id` no `GROUP BY`;
+- a listagem de projetos ficava indisponível no ambiente Cloud.
+
+Correção:
+
+- listagem pública, projetos do usuário e detalhe agrupam pelas chaves do
+  projeto e do arquivo primário;
+- o gate de portabilidade bloqueia regressão para `GROUP BY p.id` isolado;
+- os testes focados do repositório e o E2E completo passaram.
+
+### Papel Financeiro Comparava Booleano Com Inteiro
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- `finance_role_assignments.is_active` é booleano no PostgreSQL;
+- a consulta de autorização comparava o campo com o inteiro `1`;
+- usuários com papel financeiro recebiam `500` antes da avaliação de acesso.
+
+Correção:
+
+- a consulta usa parâmetro booleano tipado, compatível com PostgreSQL e SQLite;
+- administrador máximo mantém somente leitura dos overviews sem ganhar ações
+  financeiras sensíveis;
+- teste de portabilidade verifica o parâmetro e o contrato de agrupamento.
+
+### Textos Responsivos Excediam 320 Px No Runner Linux
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- o resumo de comunidades e o estado de etapas do Setup mantinham o texto
+  inteiro em uma única linha;
+- a fonte do navegador Linux tornou o conteúdo maior que a área útil em 320 px,
+  embora o mesmo cenário coubesse no navegador local;
+- o gate de deploy bloqueou a publicação antes de alterar produção.
+
+Correção:
+
+- resumos, títulos de etapa, estados e links limitam a própria largura e
+  permitem quebra segura do texto;
+- a matriz E2E continua bloqueando qualquer elemento visível fora do viewport;
+- o deploy anterior falhou antes do empacotamento e não exigiu rollback.
+
+### Status Da Receita De Setup Excedia 320 Px No Runner Linux
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- o rótulo `aguardando` podia manter a largura mínima do título da etapa;
+- em 320 px, a combinação ultrapassava o viewport no navegador Linux;
+- o gate de deploy bloqueou a publicação antes de empacotar ou alterar produção.
+
+Correção:
+
+- o conteúdo da etapa agora pode encolher e quebrar palavras longas com segurança;
+- em celulares estreitos, título e status podem ocupar linhas separadas;
+- a matriz E2E continua verificando todos os elementos visíveis em 320 px.
+
+### Biblioteca Pública De Perfil Falhava No PostgreSQL
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- a página pública de perfil recebia `500` ao carregar os itens da biblioteca;
+- a consulta agregava somente pela chave do item, mas também selecionava dados
+  do perfil, comunidade e catálogo;
+- o SQLite aceitava a consulta, enquanto o PostgreSQL exigia todas as colunas
+  externas no agrupamento.
+
+Correção:
+
+- totais de favoritos, coleções, listas e downloads passaram a usar agregações
+  isoladas por item, sem multiplicar as linhas da consulta principal;
+- biblioteca pública, favoritos e coleções deixaram de depender de agrupamentos
+  ambíguos;
+- o gate de portabilidade bloqueia regressão para `GROUP BY li.id` ou
+  `GROUP BY col.id`.
+
+### Metadados De G-code Exibiam Formato Técnico Bruto
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- alguns agentes retornavam o material como lista JSON ou sequência repetida,
+  por exemplo `["PLA","PLA","PLA"]` e `PLA;ABS;ABS`;
+- arquivos sem identificação do fatiador exibiam `Unknown ?` ao usuário final.
+
+Correção:
+
+- materiais são convertidos em nomes únicos e legíveis, preservando materiais
+  diferentes;
+- marcadores técnicos de ausência são omitidos e fatiadores identificados
+  mantêm apenas nome e versão válidos;
+- o mesmo formatador atende listagem, detalhe e painel de operação.
+
+### Rótulo Oculto Da Busca Do Design System Ficava Visível
+
+Estado: corrigido e retestado em 2026-07-26.
+
+Impacto:
+
+- a classe de texto exclusivo para leitor de tela não possuía implementação
+  visual no escopo do laboratório;
+- o rótulo `Buscar capacidade` se sobrepunha ao ícone e ao campo em desktop e
+  celular;
+- a falha foi encontrada na inspeção dos snapshots antes do fechamento.
+
+Correção:
+
+- o utilitário local mantém o rótulo disponível à tecnologia assistiva e fora
+  do fluxo visual;
+- snapshots desktop/tema escuro e mobile/tema claro foram regenerados,
+  inspecionados e aprovados;
+- o E2E bloqueia overflow, regressão visual e violações Axe críticas/sérias.
+
+### Estado De Falha Do Design System Era Comprimido No Desktop
+
+Estado: corrigido e retestado em 2026-07-26.
+
+Impacto:
+
+- loading, erro e acesso negado eram renderizados sem o container que ocupa toda
+  a grade do workspace;
+- no desktop, a mensagem de recuperação ficava comprimida na primeira coluna;
+- o fluxo feliz não apresentava o problema porque já usava o container correto.
+
+Correção:
+
+- todos os retornos antecipados usam a mesma fronteira responsiva da tela;
+- timeout, `429` e `5xx` são exercitados em desktop e mobile até recuperação;
+- o rascunho local permanece intacto durante as falhas.
+
+### Porta Local Configurável Mantinha Parte Da API Em 8069
+
+Status: corrigido
+
+Reprodução: iniciar o bundle de produção com `PRINTORA_PORT` diferente de
+`8069`, criar sessão e abrir Projetos. O carregamento auxiliar do catálogo de
+firmware tentava acessar `127.0.0.1:8069` e a interface exibia `Failed to fetch`.
+
+Causa: o desvio usado pelo servidor de desenvolvimento do Vite era aplicado
+também ao bundle de produção. Nesse modo, frontend e API são servidos pela mesma
+origem e precisam preservar a porta configurada.
+
+Correção: restringir o desvio para `8069` a `import.meta.env.DEV`; produção usa
+URL relativa, salvo quando `VITE_PRINTORA_API_BASE_URL` estiver explicitamente
+configurada.
+
+Reteste: teste unitário dos três modos, build de produção, execução isolada na
+porta `18070` e abertura autenticada de Projetos sem erro de rede.
+
+### Modelo Aprovado Não Exibia Medidas Nem Prévia No Projeto
+
+Estado: corrigido e retestado em 2026-08-03.
+
+Impacto:
+
+- o modelo reconstruído e aprovado era liberado corretamente para fatiamento;
+- a área de peças, porém, exibia `Medidas ainda não disponíveis` e ocultava a
+  prévia 3D;
+- os dados existiam, mas usavam o contrato interno da qualificação da malha.
+
+Correção:
+
+- a promoção agora traduz explicitamente a qualificação para o contrato estável
+  de inspeção de arquivos do projeto;
+- medidas, quantidade de triângulos, prévia, componentes e avisos permanecem no
+  snapshot imutável criado durante a aprovação;
+- o teste integrado da revisão bloqueia regressão dessa tradução.
+
+### Criação De Projeto Falhava Com Erro Interno No PostgreSQL
+
+Estado: corrigido, retestado e publicado em 2026-08-05.
+
+Reprodução:
+
+- em `Projetos de impressão > Meus projetos`, preencher o nome e selecionar
+  `Criar projeto`;
+- a API respondia `500` antes de criar o projeto e a interface exibia
+  `Internal Server Error`.
+
+Causa:
+
+- o baseline PostgreSQL legado criou as tabelas centrais de projetos com `id`
+  obrigatório, porém sem sequência e sem valor padrão;
+- o primeiro `INSERT` omitia corretamente o identificador, mas o banco não
+  conseguia gerá-lo.
+
+Correção:
+
+- o SQL PostgreSQL incremental cria e sincroniza as sequências das seis tabelas
+  graváveis do domínio de projetos;
+- cada sequência fica ligada à respectiva coluna `id`, sem alterar ou remover
+  registros existentes;
+- o ajuste usa lock curto para impedir colisão durante a sincronização e é
+  reaplicável pelo fluxo oficial de publicação.
+
+### Detalhe De Projeto Era Comprimido Em Coluna Lateral
+
+Estado: corrigido, retestado e publicado em 2026-08-05.
+
+Reprodução:
+
+- abrir `Projetos de impressão > Meus projetos`;
+- selecionar `Abrir projeto` em qualquer card;
+- o detalhe era anexado à direita da listagem em uma coluna estreita, reunindo
+  arquivos, publicação, digitalização, fatiamento e histórico em uma rolagem
+  extensa.
+
+Causa:
+
+- a tela tratava seleção de card como expansão do layout, contrariando a regra
+  de separar lista, criação e detalhe;
+- a captura aceitava várias fotos genéricas por altura e não apresentava cada
+  posição que a pessoa precisava fotografar.
+
+Correção:
+
+- listagem e detalhe passaram a ser estados exclusivos, com retorno visível e
+  abas de responsabilidade no detalhe; a criação abre em modal sobre a lista;
+- a digitalização passou a solicitar 24 posições nomeadas, divididas em três
+  voltas de oito, destacando a próxima foto e permitindo refazer a posição;
+- frontend e API impedem fotos além do total solicitado;
+- o fluxo foi retestado em desktop e 390 px, sem overflow horizontal da página.
+
+### Captura Por Fotos Não Explicava Visualmente Cada Campo
+
+Estado: corrigido, retestado e publicado em 2026-08-05.
+
+Reprodução:
+
+- abrir um projeto próprio e acessar `Digitalizar objeto`;
+- a preparação informava apenas a quantidade total e, após iniciar, mostrava
+  uma volta por vez com uma representação abstrata do objeto;
+- uma pessoa sem experiência não conseguia relacionar com segurança cada campo
+  a frente, diagonais, lados, traseira e altura correta da câmera.
+
+Causa:
+
+- o protocolo técnico de 24 posições existia, mas a interface escondia grupos
+  não selecionados e não demonstrava visualmente a posição da pessoa ao redor
+  do objeto;
+- os campos não repetiam a instrução específica de direção e inclinação.
+
+Correção:
+
+- a preparação agora mostra um objeto de exemplo no centro, oito posições
+  numeradas ao redor e as três alturas da câmera;
+- os 24 campos ficam visíveis e separados em três grupos de oito, com direção,
+  inclinação, estado e ação individual para fotografar ou escolher arquivo;
+- a interface esclarece que `De baixo` significa câmera baixa inclinada para
+  cima, sem mover ou virar o objeto;
+- a captura continua liberando uma posição por vez para prevenir lacunas, mas
+  permite visualizar antecipadamente todo o trabalho necessário.
+
+### Cadastro E Detalhe De Projeto Divergiam Do Padrão Visual
+
+Estado: corrigido e retestado localmente em 2026-08-05; publicação pendente.
+
+Reprodução:
+
+- abrir `Projetos de impressão > Meus projetos` e selecionar `Novo projeto`;
+- o formulário substituía a listagem em vez de abrir no modal usado pelos
+  demais cadastros;
+- abrir um projeto e observar que o conteúdo do detalhe permanecia limitado e
+  centralizado, deixando espaço útil sem uso em telas largas.
+
+Causa:
+
+- o fluxo de projetos criou uma página exclusiva para um formulário curto;
+- o container do detalhe mantinha `max-width`, apesar de a tela já separar
+  listagem e detalhe.
+
+Correção:
+
+- `Novo projeto` abre modal com cabeçalho, seções, cancelamento e rodapé de ações
+  iguais aos formulários existentes;
+- o detalhe e todas as suas abas usam 100% da largura útil da área principal;
+- testes cobrem permanência da listagem sob o modal, ausência de overflow e
+  largura integral do detalhe.
+
+### Incidente crítico — WAL local sem retenção esgota volume compartilhado
+
+Estado: corrigido, publicado e retestado em produção em 2026-09-08; commit produtivo `3da7f94`.
+Evidência: `docs/audits/WAL_CAPACITY_INCIDENT_2026-09-08.md`.
+
+Reprodução confirmada: `/dev/sda4` com zero bytes disponíveis; arquivo de WAL
+com 535.193.194.492 bytes, 31.900 segmentos completos e 12 arquivos auxiliares.
+PostgreSQL 16/printora rejeita conexões; log registra PANIC ao gravar checkpoint
+por `No space left on device`. Printora e geração de PDFs do Inspect afetados.
+
+Causa: `sync-postgresql-wal.sh` enviava o arquivo local ao Restic, mas não havia
+retenção após custódia externa. O estado local também continha backup completo
+de 27/07 e restore de 24/07, ambos vencidos. O status da unit não comprovava
+que o banco aceitava conexões.
+
+Correção instalada e retestada: retenção local com margem mínima de 72 horas, checksum
+externo, lock compartilhado, lotes auditados, dry-run, limites por idade/capacidade
+e bloqueio por inconsistência. Resolver histórico Restic no restore evita perda
+de acesso aos segmentos que não constam mais no último snapshot.
+
+Fechamento exige espaço livre >=15%, banco fora de recovery, checkpoints,
+Printora health/ready, 51 clientes Inspect, geração/abertura de PDF, ausência de
+novos erros de espaço, testes, check, commit/push e publicação efetiva.
+
+
+Aceite final do incidente: 505.866.477.568 bytes disponíveis (52,03% do volume;
+`df` 46% ocupado), PostgreSQL fora de recovery e checkpoints avançando, zero
+novos erros de espaço detectados, Printora e 51 clientes Inspect validados,
+PDFs gerados/abertos. Restore pela unit instalada passou em 206 s. O timer de
+retenção removeu o WAL recomposto de teste após confirmação de custódia, com
+lock, checksum e auditoria; duas recusas anteriores preservaram o arquivo e a
+retentativa automática passou. Pipeline `34246366459`, tentativa 2, aprovado.

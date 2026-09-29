@@ -1,0 +1,24 @@
+{
+  "private_hosts": [
+    "localhost",
+    "printer.local",
+    "127.0.0.1",
+    "10.0.0.1",
+    "172.16.0.1",
+    "192.168.1.1",
+    "169.254.169.254",
+    "::1",
+    "fc00::1",
+    "fe80::1"
+  ],
+  "path_traversal": [
+    "../secret.gcode",
+    "..%2fsecret.gcode",
+    "..%252fsecret.gcode",
+    "folder/../../secret.gcode",
+    "/etc/passwd.gcode",
+    "folder\\..\\secret.gcode",
+    "gcodes/../secret.gcode",
+    "safe.gcode\u0000../secret.gcode"
+  ]
+}

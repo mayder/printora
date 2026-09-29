@@ -11,6 +11,7 @@ scope = "ESCOPO.md"
 governance = "GOVERNANCA.md"
 roadmap = "QUALITY_ROADMAP.md"
 backlog = "DEMANDAS.md"
+backlog_archive = "DEMANDAS_CONSOLIDADAS_PKG_01_100.md"
 bugs = "BUGS.md"
 screens = "TELAS.md"
 tests = "TESTES.md"
@@ -20,6 +21,17 @@ readme = "README.md"
 check = "./check.sh"
 mindmap_complete = "MAPA_MENTAL_MARKMAP.md"
 mindmap_executive = "MAPA_EXECUTIVO_MARKMAP.md"
+community_master = "docs/community/MASTER_PLAN.md"
+community_benchmark = "docs/community/PLATFORM_BENCHMARK.md"
+community_backlog = "docs/community/COMMUNITY_BACKLOG.md"
+community_screens = "docs/community/COMMUNITY_SCREENS.md"
+community_priorities = "docs/community/PRIORITIES.md"
+community_package_architecture = "docs/community/PACKAGE_ARCHITECTURE.csv"
+community_package_portfolio = "docs/community/PACKAGE_PORTFOLIO.csv"
+community_package_standard = "docs/community/PACKAGE_EXECUTION_STANDARD.md"
+community_modeling_review = "docs/community/PACKAGE_MODELING_REVIEW.md"
+architecture_evolution = "docs/architecture/EVOLUCAO_ARQUITETURAL.md"
+architecture_review = "docs/architecture/REVISAO_PACOTES.md"
 
 [rules]
 read_order = [
@@ -42,6 +54,11 @@ frontend.framework = "Vite/React"
 frontend.tests = "/Users/brenomayder/projects/printora/frontend/tests"
 frontend.public = "/Users/brenomayder/projects/printora/frontend/public"
 
+agent.root = "/Users/brenomayder/projects/printora/agent"
+agent.language = "Go"
+agent.framework = "CLI/systemd"
+agent.tests = "/Users/brenomayder/projects/printora/agent/internal"
+
 [checks]
 required = [
   "./check.sh",
@@ -53,6 +70,7 @@ max_function_lines = 60
 runtime_dirs = [
   "backend/app",
   "frontend/src",
+  "agent",
 ]
 docs_only_paths = [
   "PATHS.toml",
@@ -78,13 +96,28 @@ forbid_runtime_patterns = [
 ]
 
 [quality.stack]
-language = "python+typescript"
-framework = "FastAPI + Vite/React"
+language = "python+typescript+go"
+framework = "FastAPI + Vite/React + Go CLI"
+test = "scripts/run-pkg97-test-gates.sh"
 
 [quality.coverage]
-enabled = false
-min_lines = 0
-critical_min_lines = 0
+enabled = true
+command = "scripts/run-coverage-gate.sh"
+min_lines = 1.7
+critical_min_lines = 54
+python_min_lines = 79
+python_critical_min_lines = 84
+go_min_statements = 53
+go_critical_min_statements = 54
+frontend_min_lines = 1.7
+frontend_critical_min_lines = 89
+baseline = "quality/coverage-baseline.json"
+gate = "scripts/run-coverage-gate.sh"
+
+[quality.mutation]
+enabled = true
+command = "scripts/run-mutation-gate.sh"
+min_score = 60
 
 [quality.fixtures]
 dirs = [

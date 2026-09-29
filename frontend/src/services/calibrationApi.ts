@@ -1,4 +1,12 @@
-import { apiResponse } from "./http";
+import { apiResponse, getStoredStepUpToken } from "./http";
+
+function withStepUp(body: unknown): unknown {
+  const stepUpToken = getStoredStepUpToken();
+  if (!stepUpToken || typeof body !== "object" || body === null || Array.isArray(body)) {
+    return body;
+  }
+  return { ...body, step_up_token: stepUpToken };
+}
 
 export const calibrationApi = {
   availableTests: (printerId?: number) =>
@@ -7,6 +15,7 @@ export const calibrationApi = {
   summary: (printerId: number) => apiResponse(`/api/printers/${printerId}/calibration/summary`),
   sequence: (printerId: number) => apiResponse(`/api/printers/${printerId}/calibration/sequence`),
   executions: (printerId: number) => apiResponse(`/api/printers/${printerId}/calibration/executions`),
+  console: (printerId: number, count = 80) => apiResponse(`/api/printers/${printerId}/calibration/console?count=${count}`),
   createRun: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/calibration/runs`, {
       method: "POST",
@@ -21,4 +30,20 @@ export const calibrationApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  configRemediationPreview: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/calibration/config-remediation/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  configRemediationApply: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/calibration/config-remediation/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withStepUp(body)),
+    }),
+  deleteExecution: (printerId: number, attemptId: number) =>
+    apiResponse(`/api/printers/${printerId}/calibration/executions/${attemptId}`, { method: "DELETE" }),
+  deleteRun: (printerId: number, runId: number) =>
+    apiResponse(`/api/printers/${printerId}/calibration/runs/${runId}`, { method: "DELETE" }),
 };

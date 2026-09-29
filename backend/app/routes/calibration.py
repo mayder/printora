@@ -1,8 +1,27 @@
 from __future__ import annotations
 
+import base64
+import json
+import re
+import textwrap
+import time
+
+from fastapi import Depends, Header
+
+from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
+from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
+from app.auth import AuthRepository
+from app.config_remediation import (
+    ConfigRemediationApplyRequest,
+    ConfigRemediationRequest,
+    build_config_remediation_script,
+    parse_config_remediation_stdout,
+)
+from app.database import connect_database
+from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/calibration/tests")
@@ -34,23 +53,20 @@ async def list_available_calibration_tests(printer_id: int) -> CalibrationAvaila
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    connected = True
     try:
-        available_objects = await client.printer_objects_list()
-        object_payload = await client.printer_objects({"toolhead": ["axis_minimum", "axis_maximum"]}) if "toolhead" in available_objects else {}
-    except httpx.HTTPError:
-        connected = False
-        available_objects = []
-        object_payload = {}
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_calibration_capabilities",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        available_objects, object_status, connected = calibration_capabilities_payload(job.result)
+    except HTTPException:
+        available_objects, object_status, connected = [], {}, False
     return build_available_calibration_tests(
         printer_id=printer.id,
         tests=repository.list_tests(),
         available_objects=available_objects,
-        object_status=object_payload.get("status", object_payload) if isinstance(object_payload, dict) else {},
+        object_status=object_status,
         connected=connected,
     )
 
@@ -78,6 +94,107 @@ async def list_calibration_executions(printer_id: int, limit: int = 20) -> dict[
     if printer_repository.get_printer(printer_id) is None:
         raise HTTPException(status_code=404, detail="printer not found")
     return {"executions": repository.list_execution_attempts(printer_id, limit=limit)}
+
+
+@router.get("/api/printers/{printer_id}/calibration/console")
+async def get_calibration_console(printer_id: int, count: int = 80) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_count = min(max(count, 1), 120)
+    payload = await _run_calibration_console_script(settings, printer, clean_count)
+    if payload.get("data_state") == "live":
+        updated_execution = _refresh_pending_pid_execution_from_console(repository, printer.id, payload.get("console") or [])
+        if updated_execution is not None:
+            payload["updated_execution"] = updated_execution.model_dump()
+    return payload
+
+
+@router.delete("/api/printers/{printer_id}/calibration/executions/{attempt_id}")
+async def delete_calibration_execution(printer_id: int, attempt_id: int) -> dict[str, bool]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        deleted = repository.delete_execution_attempt_if_not_latest(printer_id, attempt_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="calibration execution not found")
+    return {"deleted": True}
+
+
+@router.delete("/api/printers/{printer_id}/calibration/runs/{run_id}")
+async def delete_calibration_run(printer_id: int, run_id: int) -> dict[str, bool]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        deleted = repository.delete_run_if_not_latest(printer_id, run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="calibration run not found")
+    return {"deleted": True}
+
+
+@router.post("/api/printers/{printer_id}/calibration/config-remediation/preview")
+async def preview_calibration_config_remediation(printer_id: int, payload: ConfigRemediationRequest) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    result = await _run_config_remediation_script(
+        settings,
+        printer,
+        payload,
+        mode="preview",
+        timeout_seconds=max(settings.request_timeout_seconds, 15.0),
+    )
+    result["execution_id"] = payload.execution_id
+    return {"printer_id": printer.id, **result}
+
+
+@router.post("/api/printers/{printer_id}/calibration/config-remediation/apply")
+async def apply_calibration_config_remediation(
+    printer_id: int,
+    payload: ConfigRemediationApplyRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    _require_config_remediation_step_up(settings, authorization, payload.step_up_token)
+    preflight = await _calibration_agent_preflight(settings, printer, "config-remediation")
+    if preflight.get("connected") is not True or preflight.get("printing") is True:
+        raise HTTPException(status_code=409, detail="remediação exige impressora conectada e ociosa")
+    if not _claim_config_remediation(settings, printer.id, payload):
+        raise HTTPException(status_code=409, detail="remediação já executada ou em andamento")
+    result = await _run_config_remediation_script(
+        settings,
+        printer,
+        payload,
+        mode="apply",
+        timeout_seconds=max(settings.request_timeout_seconds, 20.0),
+    )
+    result["execution_id"] = payload.execution_id
+    if result.get("status") == "applied":
+        result["firmware_restart"] = await _restart_firmware_after_config_remediation(settings, printer)
+        _append_config_remediation_to_execution(settings, printer.id, payload, result)
+        _finish_config_remediation_claim(settings, printer.id, payload, "completed")
+    else:
+        _finish_config_remediation_claim(settings, printer.id, payload, "failed")
+    return {"printer_id": printer.id, **result}
 
 
 
@@ -117,11 +234,7 @@ async def calibration_test_preflight(printer_id: int, test_key: str) -> Calibrat
     test = repository.get_test(test_key)
     if test is None:
         raise HTTPException(status_code=404, detail="calibration test not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    preflight = await _operation_execution_preflight(client)
+    preflight = await _calibration_agent_preflight(settings, printer, test.test_key)
     return build_calibration_preflight(printer_id=printer.id, test=test, preflight=preflight)
 
 
@@ -156,11 +269,7 @@ async def execute_calibration_test(
     test = repository.get_test(payload.test_key)
     if test is None:
         raise HTTPException(status_code=404, detail="calibration test not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    preflight = await _operation_execution_preflight(client)
+    preflight = await _calibration_agent_preflight(settings, printer, test.test_key)
     gate = build_calibration_execution_gate(test=test, payload=payload, preflight=preflight)
     if gate.status == "blocked":
         return repository.create_execution_attempt(
@@ -172,23 +281,75 @@ async def execute_calibration_test(
             result=[],
             message=gate.message,
         )
+    recent_execution = repository.recent_sent_execution(printer.id, test.test_key, within_seconds=_calibration_duplicate_window(test))
+    if recent_execution is not None:
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="blocked",
+            sent_commands=[],
+            result=[
+                {
+                    "blocked_duplicate_of": recent_execution.id,
+                    "last_execution_at": recent_execution.created_at,
+                    "last_sent_commands": recent_execution.sent_commands,
+                }
+            ],
+            message="Execução repetida bloqueada por segurança; aguarde alguns segundos antes de repetir o mesmo teste.",
+        )
+    if not _claim_calibration_execution(settings, printer.id, test.test_key, _calibration_duplicate_window(test)):
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="blocked",
+            sent_commands=[],
+            result=[],
+            message="Execução concorrente bloqueada por segurança.",
+        )
 
-    sent_commands: list[str] = []
-    results: list[dict[str, Any]] = []
-    failed_command: str | None = None
-    for command in gate.commands:
-        result = await _send_and_monitor_gcode(client, command, settings.request_timeout_seconds)
-        results.append(result)
-        if result.get("accepted"):
-            sent_commands.append(command)
-            continue
-        failed_command = command
-        break
-
-    if failed_command is not None:
-        status = "failed_partial" if sent_commands else "failed"
-        failed_result = results[-1] if results else {}
-        error_detail = str(failed_result.get("transport_error") or failed_result.get("monitor_error") or "sem detalhe")
+    try:
+        command_timeout = _calibration_execution_timeout(test, settings)
+        wait_timeout = _calibration_execution_wait_timeout(test, settings, command_timeout)
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_execute",
+            payload={
+                "action_id": f"calibration:{test.test_key}",
+                "criticality": "calibration",
+                "commands": gate.commands,
+                "timeout_seconds": command_timeout,
+            },
+            timeout_seconds=wait_timeout,
+        )
+        result_payload = job.result or {}
+        sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
+        results = _calibration_execution_results(result_payload)
+        execution_status = str(result_payload.get("status") or "executed")
+        if execution_status not in {"executed", "dispatched_unconfirmed", "failed_partial"}:
+            execution_status = "executed"
+    except AgentJobFailedError as exc:
+        result_payload = exc.job.result or {"agent_error": exc.detail}
+        sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
+        results = _calibration_execution_results(result_payload)
+        if not results:
+            results = [{"accepted": False, "agent_error": exc.detail}]
+        error_detail = _calibration_agent_failure_detail(result_payload) or str(exc.detail)
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="failed",
+            sent_commands=sent_commands,
+            result=results,
+            message=f"Falha ao confirmar G-code pelo agente: {error_detail}",
+        )
+    except HTTPException as exc:
+        status = "failed"
+        sent_commands = []
+        results = [{"accepted": False, "agent_error": exc.detail}]
+        error_detail = str(exc.detail)
         return repository.create_execution_attempt(
             printer_id=printer.id,
             test=test,
@@ -196,15 +357,386 @@ async def execute_calibration_test(
             status=status,
             sent_commands=sent_commands,
             result=results,
-            message=f"Falha ao confirmar G-code '{failed_command}': {error_detail}",
+            message=f"Falha ao confirmar G-code pelo agente: {error_detail}",
         )
 
     return repository.create_execution_attempt(
         printer_id=printer.id,
         test=test,
         gate=gate,
-        status="executed",
+        status=execution_status,
         sent_commands=sent_commands,
         result=results,
-        message="G-code de calibração enviado e confirmado por monitoramento final do Moonraker.",
+        message=_calibration_execution_message(execution_status, sent_commands, gate.commands),
     )
+
+
+def _calibration_agent_failure_detail(payload: dict) -> str:
+    for message in payload.get("console_excerpt") or []:
+        text = str(message).strip()
+        if "SAVE_CONFIG" in text or "conflicts with included value" in text:
+            return text
+    detail = payload.get("detail") or payload.get("agent_error")
+    return str(detail).strip() if detail else ""
+
+
+async def _run_calibration_console_script(settings, printer, count: int) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_host_script",
+            payload={
+                "kind": "calibration_console",
+                "script": _build_calibration_console_script(str(printer.moonraker_url), count),
+                "timeout_seconds": max(settings.request_timeout_seconds, 8.0),
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, 12.0),
+        )
+    except AgentJobFailedError as exc:
+        result = exc.job.result if isinstance(exc.job.result, dict) else {}
+        parsed = _parse_calibration_console_stdout(str(result.get("stdout") or ""))
+        parsed.setdefault("data_state", "offline")
+        parsed.setdefault("console", [])
+        parsed.setdefault("error", exc.detail)
+        return parsed
+    except HTTPException as exc:
+        return {"data_state": "offline", "console": [], "error": str(exc.detail)}
+    result = job.result if isinstance(job.result, dict) else {}
+    parsed = _parse_calibration_console_stdout(str(result.get("stdout") or ""))
+    if result.get("exit_code") not in (0, None):
+        parsed.setdefault("data_state", "offline")
+        parsed.setdefault("console", [])
+        parsed.setdefault("error", str(result.get("stderr") or result.get("error") or "script remoto falhou"))
+    return parsed
+
+
+def _build_calibration_console_script(moonraker_url: str, count: int) -> str:
+    payload = base64.b64encode(
+        json.dumps({"moonraker_url": moonraker_url, "count": count}, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    return textwrap.dedent(
+        f"""
+        python3 - <<'PY'
+        import base64
+        import json
+        import urllib.request
+
+        payload = json.loads(base64.b64decode("{payload}").decode("utf-8"))
+        base = str(payload["moonraker_url"]).rstrip("/")
+        count = max(1, min(int(payload["count"]), 120))
+        url = f"{{base}}/server/gcode_store?count={{count}}"
+        try:
+            with urllib.request.urlopen(url, timeout=4) as response:
+                raw = json.loads(response.read().decode("utf-8"))
+            result = raw.get("result") if isinstance(raw, dict) else {{}}
+            store = result.get("gcode_store") if isinstance(result, dict) else []
+            console = []
+            if isinstance(store, list):
+                for item in reversed(store[-count:]):
+                    if isinstance(item, dict):
+                        message = item.get("message")
+                        console.append(str(message) if message is not None else json.dumps(item, ensure_ascii=False))
+                    else:
+                        console.append(str(item))
+            print(json.dumps({{"data_state": "live", "console": console}}, ensure_ascii=False))
+        except Exception as exc:
+            print(json.dumps({{"data_state": "offline", "console": [], "error": str(exc)}}, ensure_ascii=False))
+        PY
+        """
+    ).strip()
+
+
+def _parse_calibration_console_stdout(stdout: str) -> dict[str, Any]:
+    for line in reversed([item.strip() for item in stdout.splitlines() if item.strip()]):
+        if not line.startswith("{"):
+            continue
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        console = parsed.get("console")
+        return {
+            "data_state": "live" if parsed.get("data_state") == "live" else "offline",
+            "console": [str(item) for item in console] if isinstance(console, list) else [],
+            **({"error": str(parsed["error"])} if parsed.get("error") else {}),
+        }
+    return {"data_state": "offline", "console": [], "error": "retorno do console remoto invalido"}
+
+
+def _refresh_pending_pid_execution_from_console(
+    repository: CalibrationRepository,
+    printer_id: int,
+    console_lines: list[Any],
+) -> CalibrationExecutionRecord | None:
+    console_excerpt = [str(item) for item in console_lines if str(item).strip()]
+    if not _extract_pid_parameters(console_excerpt):
+        return None
+    execution = next(
+        (
+            item
+            for item in repository.list_execution_attempts(printer_id, limit=20)
+            if item.status == "dispatched_unconfirmed" and _execution_has_pid_calibrate_command(item)
+        ),
+        None,
+    )
+    if execution is None:
+        return None
+    result_without_old_console = [item for item in execution.result if item.get("kind") != "moonraker_console"]
+    result = [
+        *result_without_old_console,
+        *_calibration_execution_results({"console_excerpt": console_excerpt}),
+    ]
+    return repository.update_execution_attempt_result(
+        execution.id,
+        status="executed",
+        result=result,
+        message=_calibration_execution_message("executed", execution.sent_commands, execution.commands),
+    )
+
+
+def _execution_has_pid_calibrate_command(execution: CalibrationExecutionRecord) -> bool:
+    commands = [*execution.commands, *execution.sent_commands]
+    for item in execution.result:
+        command = item.get("command")
+        if isinstance(command, str):
+            commands.append(command)
+    return any(command.strip().upper().startswith("PID_CALIBRATE") for command in commands)
+
+
+async def _run_config_remediation_script(settings, printer, payload, *, mode: str, timeout_seconds: float) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_host_script",
+            payload={
+                "kind": f"config_remediation_{mode}",
+                "script": build_config_remediation_script(payload, mode=mode),
+                "timeout_seconds": timeout_seconds,
+            },
+            timeout_seconds=timeout_seconds + 5.0,
+        )
+    except AgentJobFailedError as exc:
+        result = exc.job.result if isinstance(exc.job.result, dict) else {}
+        stdout = str(result.get("stdout") or "")
+        parsed = parse_config_remediation_stdout(stdout)
+        parsed.setdefault("status", "failed")
+        parsed.setdefault("error", exc.detail)
+        return parsed
+    except HTTPException as exc:
+        return {"status": "failed", "error": str(exc.detail)}
+    result = job.result if isinstance(job.result, dict) else {}
+    parsed = parse_config_remediation_stdout(str(result.get("stdout") or ""))
+    if result.get("exit_code") not in (0, None):
+        parsed.setdefault("status", "failed")
+        parsed.setdefault("error", str(result.get("stderr") or result.get("error") or "script remoto falhou"))
+    return parsed
+
+
+async def _restart_firmware_after_config_remediation(settings, printer) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_execute",
+            payload={
+                "action_id": "config_remediation:firmware_restart",
+                "criticality": "config_remediation",
+                "commands": ["FIRMWARE_RESTART"],
+                "timeout_seconds": max(settings.request_timeout_seconds, 20.0),
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, 25.0),
+        )
+        return job.result or {"status": "executed"}
+    except AgentJobFailedError as exc:
+        return exc.job.result or {"status": "failed", "detail": exc.detail}
+    except HTTPException as exc:
+        return {"status": "failed", "detail": str(exc.detail)}
+
+
+def _require_config_remediation_step_up(settings, authorization: str | None, step_up_token: str | None) -> None:
+    if not authorization:
+        return
+    repository = AuthRepository(settings.database_path)
+    current = require_current_user(authorization=authorization, repository=repository)
+    if not step_up_token or not repository.consume_step_up(current.user.id, step_up_token, "destructive_action"):
+        raise HTTPException(status_code=403, detail="autenticação reforçada obrigatória para ação crítica")
+
+
+def _config_remediation_claim_key(printer_id: int, payload: ConfigRemediationApplyRequest) -> str:
+    return f"calibration-remediation:{printer_id}:{payload.execution_id}:{payload.section}"
+
+
+def _claim_calibration_execution(settings, printer_id: int, test_key: str, window_seconds: int) -> bool:
+    bucket = int(time.time() / max(window_seconds, 1))
+    with connect_database(settings.database_path) as connection:
+        row = connection.execute(
+            """
+            INSERT INTO security_operation_claims (claim_key, operation_type, actor_user_id)
+            VALUES (?, 'calibration_execution', ?)
+            ON CONFLICT(claim_key) DO NOTHING
+            RETURNING id
+            """,
+            (
+                f"calibration:{printer_id}:{test_key}:{bucket}",
+                current_auth_scope()[0],
+            ),
+        ).fetchone()
+    return row is not None
+
+
+def _claim_config_remediation(settings, printer_id: int, payload: ConfigRemediationApplyRequest) -> bool:
+    current_user_id = current_auth_scope()[0]
+    with connect_database(settings.database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO security_operation_claims (claim_key, operation_type, actor_user_id)
+            VALUES (?, 'calibration_remediation', ?)
+            ON CONFLICT(claim_key) DO NOTHING
+            """,
+            (_config_remediation_claim_key(printer_id, payload), current_user_id),
+        )
+    return cursor.rowcount > 0
+
+
+def _finish_config_remediation_claim(settings, printer_id: int, payload: ConfigRemediationApplyRequest, status: str) -> None:
+    with connect_database(settings.database_path) as connection:
+        connection.execute(
+            """
+            UPDATE security_operation_claims
+            SET status = ?, completed_at = CURRENT_TIMESTAMP
+            WHERE claim_key = ?
+            """,
+            (status, _config_remediation_claim_key(printer_id, payload)),
+        )
+
+
+async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_preflight",
+            payload={"action_id": f"calibration:{test_key}", "criticality": "calibration"},
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+    except HTTPException as exc:
+        return {
+            "safe_mode": "agent_preflight",
+            "connected": False,
+            "printing": False,
+            "print_state": "",
+            "summary": "Agente indisponível no preflight.",
+            "error": str(exc.detail),
+            "source": "agent",
+        }
+    return agent_preflight_payload(job.result)
+
+
+def _calibration_execution_message(status: str, sent_commands: list[str], commands: list[str]) -> str:
+    if status == "dispatched_unconfirmed":
+        return (
+            f"{len(sent_commands)}/{len(commands)} comando(s) enviado(s). O Moonraker ainda nao devolveu "
+            "a resposta final; o comando pode continuar rodando na impressora. Acompanhe o console do Printora e aguarde "
+            "a conclusao antes de repetir."
+        )
+    if status == "failed_partial":
+        return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s); execucao parcial."
+    return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s)."
+
+
+def _calibration_execution_timeout(test, settings) -> float:
+    command_text = "\n".join(test.gcode).upper()
+    if "PID_CALIBRATE" in command_text:
+        return max(settings.request_timeout_seconds, 65.0)
+    if "BED_MESH_CALIBRATE" in command_text or "QUAD_GANTRY_LEVEL" in command_text or "PROBE_ACCURACY" in command_text:
+        return max(settings.request_timeout_seconds, 90.0)
+    return max(settings.request_timeout_seconds, 45.0)
+
+
+def _calibration_execution_wait_timeout(test, settings, command_timeout: float) -> float:
+    command_text = "\n".join(test.gcode).upper()
+    if "PID_CALIBRATE" in command_text:
+        return min(max(settings.request_timeout_seconds, command_timeout + 10.0), 80.0)
+    return command_timeout + 20.0
+
+
+def _append_config_remediation_to_execution(
+    settings,
+    printer_id: int,
+    payload: ConfigRemediationApplyRequest,
+    result: dict[str, Any],
+) -> None:
+    if payload.execution_id is None:
+        return
+    repository = get_calibration_repository(settings)
+    execution = repository.get_execution_attempt(payload.execution_id)
+    if execution is None or execution.printer_id != printer_id:
+        return
+    remediation_record = {
+        "kind": "config_remediation",
+        "status": result.get("status"),
+        "section": payload.section,
+        "source": payload.source,
+        "options": [option.model_dump() for option in payload.options],
+        "target_ids": payload.target_ids,
+        "backup_path": result.get("backup_path"),
+        "applied": result.get("applied"),
+        "firmware_restart": result.get("firmware_restart"),
+    }
+    merged_result = [
+        item
+        for item in execution.result
+        if not (
+            item.get("kind") == "config_remediation"
+            and item.get("section") == payload.section
+            and item.get("source") == payload.source
+        )
+    ]
+    merged_result.append(remediation_record)
+    repository.update_execution_attempt_result(
+        execution.id,
+        status=execution.status,
+        result=merged_result,
+        message=execution.message,
+    )
+
+
+def _calibration_duplicate_window(test) -> int:
+    command_text = "\n".join(test.gcode).upper()
+    if "PID_CALIBRATE" in command_text:
+        return 45 * 60
+    if "BED_MESH_CALIBRATE" in command_text or "QUAD_GANTRY_LEVEL" in command_text or "PROBE_ACCURACY" in command_text:
+        return 20 * 60
+    return 45
+
+
+def _calibration_execution_results(result_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_results = result_payload.get("results")
+    results = [item for item in raw_results if isinstance(item, dict)] if isinstance(raw_results, list) else [result_payload]
+    console_excerpt = [str(item) for item in result_payload.get("console_excerpt") or [] if str(item).strip()]
+    if console_excerpt:
+        results.append(
+            {
+                "kind": "moonraker_console",
+                "console_excerpt": console_excerpt,
+                "save_config_required": _console_requires_save_config(console_excerpt),
+                "pid_parameters": _extract_pid_parameters(console_excerpt),
+            }
+        )
+    return results
+
+
+def _console_requires_save_config(console_excerpt: list[str]) -> bool:
+    return "SAVE_CONFIG" in "\n".join(console_excerpt).upper()
+
+
+def _extract_pid_parameters(console_excerpt: list[str]) -> dict[str, float] | None:
+    match = re.search(
+        r"pid_Kp=(?P<kp>[0-9.]+)\s+pid_Ki=(?P<ki>[0-9.]+)\s+pid_Kd=(?P<kd>[0-9.]+)",
+        "\n".join(console_excerpt),
+    )
+    if not match:
+        return None
+    return {
+        "pid_Kp": float(match.group("kp")),
+        "pid_Ki": float(match.group("ki")),
+        "pid_Kd": float(match.group("kd")),
+    }

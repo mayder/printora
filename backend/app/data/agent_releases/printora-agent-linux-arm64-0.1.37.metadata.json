@@ -1,0 +1,11 @@
+{
+  "platform": "linux/arm64",
+  "reproducible_build": true,
+  "sha256": "9b1aa635c249b8487de4b50c0ffd4583e667852c41b0a3594512135185649888",
+  "signature": "lsWLGuzwI6AJD1AFL9Cv2nTeta/tuKMedEmDB0lzk2pViOQJUqBWrt+FWg2aCgeLE/x46hkQusVgJdD1F6P3Cw==",
+  "signature_algorithm": "ed25519-sha256",
+  "signature_scope": "printora-agent-release-v1",
+  "signing_key_id": "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc",
+  "toolchain": "go1.25.12",
+  "version": "0.1.37"
+}

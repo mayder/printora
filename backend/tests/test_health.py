@@ -97,6 +97,79 @@ def test_health_blocks_when_klipper_is_not_ready() -> None:
     assert any(item["key"] == "klipper_ready" and item["severity"] == "blocker" for item in result["items"])
 
 
+def test_health_warns_on_deprecated_mcu_runtime_code() -> None:
+    result = build_printer_health(
+        printer_info={"state": "ready", "state_message": "Printer is ready"},
+        server_info={
+            "klippy_connected": True,
+            "klippy_state": "ready",
+            "failed_components": [],
+            "warnings": [],
+        },
+        update_status={"version_info": {"klipper": {"is_dirty": False, "commits_behind_count": 0}}},
+        system_info={},
+        proc_stats={},
+        snapshots=[],
+        runtime_alerts=[
+            "Klipper warning MCU 'mcu' has deprecated code (it is missing feature 'i2c_transfer'). "
+            "Recompiling and flashing is recommended."
+        ],
+        runtime_alerts_state="loaded",
+    )
+
+    runtime_alert = next(item for item in result["items"] if item["key"].startswith("klipper_runtime_"))
+    assert result["decision"] == "monitorar"
+    assert runtime_alert["severity"] == "warning"
+    assert runtime_alert["title"] == "Firmware da MCU desatualizado"
+    assert "i2c_transfer" in runtime_alert["detail"]
+    assert "impressora parada" in runtime_alert["action"]
+
+
+def test_health_blocks_on_critical_klipper_runtime_error() -> None:
+    result = build_printer_health(
+        printer_info={"state": "ready", "state_message": "Printer is ready"},
+        server_info={
+            "klippy_connected": True,
+            "klippy_state": "ready",
+            "failed_components": [],
+            "warnings": [],
+        },
+        update_status={"version_info": {"klipper": {"is_dirty": False, "commits_behind_count": 0}}},
+        system_info={},
+        proc_stats={},
+        snapshots=[],
+        runtime_alerts=["!! Lost communication with MCU 'head'"],
+        runtime_alerts_state="loaded",
+    )
+
+    runtime_alert = next(item for item in result["items"] if item["key"].startswith("klipper_runtime_"))
+    assert result["decision"] == "nao_imprimir"
+    assert runtime_alert["severity"] == "blocker"
+    assert runtime_alert["title"] == "Comunicação com MCU interrompida"
+
+
+def test_health_reports_clean_runtime_alert_collection() -> None:
+    result = build_printer_health(
+        printer_info={"state": "ready", "state_message": "Printer is ready"},
+        server_info={
+            "klippy_connected": True,
+            "klippy_state": "ready",
+            "failed_components": [],
+            "warnings": [],
+        },
+        update_status={"version_info": {"klipper": {"is_dirty": False, "commits_behind_count": 0}}},
+        system_info={},
+        proc_stats={},
+        snapshots=[],
+        runtime_alerts=[],
+        runtime_alerts_state="loaded",
+    )
+
+    runtime_item = next(item for item in result["items"] if item["key"] == "klipper_runtime_alerts")
+    assert runtime_item["severity"] == "ok"
+    assert runtime_item["ok"] is True
+
+
 def test_health_warns_on_dirty_repo() -> None:
     result = build_printer_health(
         printer_info={"state": "ready", "state_message": "Printer is ready"},

@@ -1,13 +1,43 @@
 import sqlite3
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.self_update as self_update_module
+import app.database as database_module
+from app.auth import AuthRepository, UserRegisterRequest
 from app.config import get_settings
 from app.database import initialize_database
 from app.main import app
 from app.self_update import SelfUpdateRepository, UpdatePlanRequest, build_update_plan
+
+
+@pytest.fixture
+def admin_headers(tmp_path: Path, monkeypatch) -> dict[str, str]:
+    email = "update-admin@example.test"
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_PLATFORM_ADMIN_EMAILS", email)
+    get_settings.cache_clear()
+    initialize_database(tmp_path / "printora.db")
+    repository = AuthRepository(tmp_path / "printora.db")
+    user = repository.create_user(
+        UserRegisterRequest(email=email, password="correct-horse")
+    )
+    access_token, _refresh_token = repository.create_session(user.id)
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+def test_detect_update_environment_ignores_inaccessible_termux_probe(monkeypatch) -> None:
+    def inaccessible_exists(path: Path) -> bool:
+        if str(path).endswith("/../usr"):
+            raise PermissionError("denied")
+        return False
+
+    monkeypatch.setattr(self_update_module.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(self_update_module.Path, "exists", inaccessible_exists)
+
+    assert self_update_module.detect_update_environment() == "unix"
 
 
 def test_create_android_termux_plan(tmp_path: Path) -> None:
@@ -195,13 +225,17 @@ def test_plan_endpoint_rejects_unknown_environment(tmp_path: Path, monkeypatch) 
         get_settings.cache_clear()
 
 
-def test_reconcile_endpoint_marks_stale_running_update_failed(tmp_path: Path, monkeypatch) -> None:
+def test_reconcile_endpoint_marks_stale_running_update_failed(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
     try:
         database_path = tmp_path / "printora.db"
         initialize_database(database_path)
-        repository = SelfUpdateRepository(database_path)
+        repository = SelfUpdateRepository(database_path, user_id=1)
         run = repository.create_run(
             target_tag="v9.9.9",
             source_url=None,
@@ -217,7 +251,10 @@ def test_reconcile_endpoint_marks_stale_running_update_failed(tmp_path: Path, mo
             )
 
         with TestClient(app) as client:
-            response = client.post("/api/system/update/reconcile")
+            response = client.post(
+                "/api/system/update/reconcile",
+                headers=admin_headers,
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -246,18 +283,27 @@ def test_schema_versioning_includes_app_update_sql(tmp_path: Path) -> None:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_update_steps'"
         ).fetchone()
 
-    assert scripts[-1] == "025_setup_final_validation_runs.sql"
+    assert scripts[-1] == _latest_sql_script_name()
     assert run_table == ("app_update_runs",)
     assert step_table == ("app_update_steps",)
 
 
-def test_apply_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> None:
+def _latest_sql_script_name() -> str:
+    return sorted(database_module.SQL_DIR.glob("[0-9]*.sql"))[-1].name
+
+
+def test_apply_rejects_without_confirmation(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     _configure_fixture_releases(tmp_path, monkeypatch)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
     try:
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={"target_tag": "v0.2.0", "confirmation_phrase": "ERRADO"},
             )
 
@@ -267,13 +313,18 @@ def test_apply_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> None
         get_settings.cache_clear()
 
 
-def test_apply_rejects_invalid_tag(tmp_path: Path, monkeypatch) -> None:
+def test_apply_rejects_invalid_tag(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     _configure_fixture_releases(tmp_path, monkeypatch)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
     try:
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={"target_tag": "main", "confirmation_phrase": "ATUALIZAR PRINTORA"},
             )
 
@@ -283,7 +334,11 @@ def test_apply_rejects_invalid_tag(tmp_path: Path, monkeypatch) -> None:
         get_settings.cache_clear()
 
 
-def test_apply_allows_strict_stable_tag_when_release_lookup_unavailable(tmp_path: Path, monkeypatch) -> None:
+def test_apply_allows_strict_stable_tag_when_release_lookup_unavailable(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     _configure_disabled_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unix")
@@ -292,6 +347,7 @@ def test_apply_allows_strict_stable_tag_when_release_lookup_unavailable(tmp_path
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
             )
 
@@ -303,7 +359,11 @@ def test_apply_allows_strict_stable_tag_when_release_lookup_unavailable(tmp_path
         get_settings.cache_clear()
 
 
-def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> None:
+def test_apply_rejects_unsupported_environment(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unknown")
@@ -311,9 +371,10 @@ def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> N
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={
                     "target_tag": "v0.2.0",
-                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "source_url": "https://github.com/mayder/printora.git",
                     "confirmation_phrase": "ATUALIZAR PRINTORA",
                 },
             )
@@ -324,7 +385,35 @@ def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> N
         get_settings.cache_clear()
 
 
-def test_apply_calls_mocked_unix_script_and_persists_success(tmp_path: Path, monkeypatch) -> None:
+def test_apply_rejects_untrusted_repository_source(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
+    _configure_fixture_releases(tmp_path, monkeypatch)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                headers=admin_headers,
+                json={
+                    "target_tag": "v0.2.0",
+                    "source_url": "https://attacker.example/printora.git",
+                    "confirmation_phrase": "ATUALIZAR PRINTORA",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "repositório oficial" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_calls_mocked_unix_script_and_persists_success(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unix")
@@ -333,13 +422,17 @@ def test_apply_calls_mocked_unix_script_and_persists_success(tmp_path: Path, mon
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={
                     "target_tag": "v0.2.0",
-                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "source_url": "https://github.com/mayder/printora.git",
                     "confirmation_phrase": "ATUALIZAR PRINTORA",
                 },
             )
-            history_response = client.get("/api/system/update/history")
+            history_response = client.get(
+                "/api/system/update/history",
+                headers=admin_headers,
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -352,7 +445,11 @@ def test_apply_calls_mocked_unix_script_and_persists_success(tmp_path: Path, mon
         get_settings.cache_clear()
 
 
-def test_apply_calls_mocked_windows_script_and_persists_success(tmp_path: Path, monkeypatch) -> None:
+def test_apply_calls_mocked_windows_script_and_persists_success(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "windows")
@@ -361,13 +458,17 @@ def test_apply_calls_mocked_windows_script_and_persists_success(tmp_path: Path, 
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={
                     "target_tag": "v0.2.0",
-                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "source_url": "https://github.com/mayder/printora.git",
                     "confirmation_phrase": "ATUALIZAR PRINTORA",
                 },
             )
-            history_response = client.get("/api/system/update/history")
+            history_response = client.get(
+                "/api/system/update/history",
+                headers=admin_headers,
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -380,7 +481,11 @@ def test_apply_calls_mocked_windows_script_and_persists_success(tmp_path: Path, 
         get_settings.cache_clear()
 
 
-def test_apply_calls_mocked_android_script_and_persists_success(tmp_path: Path, monkeypatch) -> None:
+def test_apply_calls_mocked_android_script_and_persists_success(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
@@ -388,9 +493,13 @@ def test_apply_calls_mocked_android_script_and_persists_success(tmp_path: Path, 
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
             )
-            history_response = client.get("/api/system/update/history")
+            history_response = client.get(
+                "/api/system/update/history",
+                headers=admin_headers,
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -405,7 +514,11 @@ def test_apply_calls_mocked_android_script_and_persists_success(tmp_path: Path, 
         get_settings.cache_clear()
 
 
-def test_apply_passes_release_url_to_script_env(tmp_path: Path, monkeypatch) -> None:
+def test_apply_passes_trusted_repository_to_script_env(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_env_check_update_script(tmp_path)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
@@ -414,9 +527,10 @@ def test_apply_passes_release_url_to_script_env(tmp_path: Path, monkeypatch) -> 
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={
                     "target_tag": "v0.2.0",
-                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "source_url": "https://github.com/mayder/printora.git",
                     "confirmation_phrase": "ATUALIZAR PRINTORA",
                 },
             )
@@ -429,7 +543,11 @@ def test_apply_passes_release_url_to_script_env(tmp_path: Path, monkeypatch) -> 
         get_settings.cache_clear()
 
 
-def test_apply_persists_failure_in_history(tmp_path: Path, monkeypatch) -> None:
+def test_apply_persists_failure_in_history(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=7)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
@@ -437,9 +555,13 @@ def test_apply_persists_failure_in_history(tmp_path: Path, monkeypatch) -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
+                headers=admin_headers,
                 json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
             )
-            history_response = client.get("/api/system/update/history")
+            history_response = client.get(
+                "/api/system/update/history",
+                headers=admin_headers,
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -453,7 +575,11 @@ def test_apply_persists_failure_in_history(tmp_path: Path, monkeypatch) -> None:
         get_settings.cache_clear()
 
 
-def test_rollback_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> None:
+def test_rollback_rejects_without_confirmation(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     run_id = _create_successful_update_run(tmp_path)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
@@ -461,6 +587,7 @@ def test_rollback_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> N
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/rollback",
+                headers=admin_headers,
                 json={"run_id": run_id, "confirmation_phrase": "ERRADO"},
             )
 
@@ -470,11 +597,15 @@ def test_rollback_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> N
         get_settings.cache_clear()
 
 
-def test_rollback_rejects_unsafe_paths(tmp_path: Path, monkeypatch) -> None:
+def test_rollback_rejects_unsafe_paths(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
-    repository = SelfUpdateRepository(database_path)
+    repository = SelfUpdateRepository(database_path, user_id=1)
     run = repository.create_run(
         target_tag="v0.2.0",
         source_url=None,
@@ -494,6 +625,7 @@ def test_rollback_rejects_unsafe_paths(tmp_path: Path, monkeypatch) -> None:
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/rollback",
+                headers=admin_headers,
                 json={"run_id": run.id, "confirmation_phrase": "ROLLBACK PRINTORA"},
             )
 
@@ -503,7 +635,11 @@ def test_rollback_rejects_unsafe_paths(tmp_path: Path, monkeypatch) -> None:
         get_settings.cache_clear()
 
 
-def test_rollback_marks_source_run_and_creates_audit_run(tmp_path: Path, monkeypatch) -> None:
+def test_rollback_marks_source_run_and_creates_audit_run(
+    tmp_path: Path,
+    monkeypatch,
+    admin_headers: dict[str, str],
+) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     run_id = _create_successful_update_run(tmp_path)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
@@ -512,9 +648,13 @@ def test_rollback_marks_source_run_and_creates_audit_run(tmp_path: Path, monkeyp
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/rollback",
+                headers=admin_headers,
                 json={"run_id": run_id, "confirmation_phrase": "ROLLBACK PRINTORA"},
             )
-            history_response = client.get("/api/system/update/history")
+            history_response = client.get(
+                "/api/system/update/history",
+                headers=admin_headers,
+            )
 
         assert response.status_code == 200
         payload = response.json()
@@ -555,7 +695,7 @@ def _create_successful_update_run(tmp_path: Path) -> int:
     backup_dir.mkdir()
     backup_path = backup_dir / "printora.db.before-update-20260523T011445Z"
     backup_path.write_text("backup", encoding="utf-8")
-    repository = SelfUpdateRepository(database_path)
+    repository = SelfUpdateRepository(database_path, user_id=1)
     run = repository.create_run(
         target_tag="v0.2.0",
         source_url=None,
@@ -605,7 +745,7 @@ def _write_env_check_update_script(tmp_path: Path) -> Path:
     script.write_text(
         """#!/usr/bin/env bash
 set -euo pipefail
-if [[ "${PRINTORA_UPDATE_REMOTE_URL:-}" != "https://github.com/mayder/printora/releases/tag/v0.2.0" ]]; then
+if [[ "${PRINTORA_UPDATE_REMOTE_URL:-}" != "https://github.com/mayder/printora.git" ]]; then
   echo '{"status":"failed","error":"missing remote env"}'
   exit 9
 fi

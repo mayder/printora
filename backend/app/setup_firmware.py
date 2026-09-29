@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import json
 import os
 import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.auth import scoped_where_clause
 from app.database import connect_database
 from app.firmware.config_generator import generate_firmware_config_preview
 from app.firmware.presets import BOARD_PRESETS
@@ -122,6 +123,8 @@ class SetupFirmwareRunRecord(BaseModel):
 @dataclass(frozen=True)
 class SetupFirmwareRunRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def create_plan(self, request: SetupFirmwareRequest, response: SetupFirmwarePlanResponse) -> int:
         return self._create_run(
@@ -161,17 +164,19 @@ class SetupFirmwareRunRepository:
 
     def list_runs(self, limit: int = 20) -> list[SetupFirmwareRunRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = _scope_sql("setup_firmware_runs", self.user_id, self.organization_ids)
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, run_type, status, safe_mode, target_host, target_port, target_user,
                        board_name, board_role, preset_id, can_interface, config_path, artifact_dir,
                        binary_path, config_sha256, binary_sha256, uuid_query_json, summary_json,
                        plan_json, command_log, error_message, created_at
                 FROM setup_firmware_runs
+                {where_clause}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
 
@@ -201,9 +206,9 @@ class SetupFirmwareRunRepository:
                     run_type, status, safe_mode, target_host, target_port, target_user,
                     board_name, board_role, preset_id, can_interface, config_path, artifact_dir,
                     binary_path, config_sha256, binary_sha256, uuid_query_json, summary_json,
-                    plan_json, command_log, error_message
+                    plan_json, command_log, error_message, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_type,
@@ -226,6 +231,7 @@ class SetupFirmwareRunRepository:
                     json.dumps(plan, ensure_ascii=False) if plan is not None else None,
                     command_log,
                     error,
+                    self.user_id,
                 ),
             )
             return int(cursor.lastrowid)
@@ -348,11 +354,11 @@ def _remote_build_script(request: SetupFirmwareBuildRequest, build_output: str, 
     config_name = Path(_preset(request.preset_id).config_file).name
     binary_name = Path(build_output).name
     return f"""set -euo pipefail
-KLIPPER_PATH="{klipper}"
-OUTPUT_ROOT="{output_root}"
-BOARD_SLUG="{board_slug}"
-CAN_IFACE="{request.can_interface}"
-BUILD_OUTPUT="{build_output}"
+KLIPPER_PATH={shlex.quote(klipper)}
+OUTPUT_ROOT={shlex.quote(output_root)}
+BOARD_SLUG={shlex.quote(board_slug)}
+CAN_IFACE={shlex.quote(request.can_interface)}
+BUILD_OUTPUT={shlex.quote(build_output)}
 ARTIFACT_DIR="$OUTPUT_ROOT/$BOARD_SLUG"
 GENERATED_DIR="$ARTIFACT_DIR/generated"
 LOG_DIR="$ARTIFACT_DIR/logs"
@@ -400,56 +406,14 @@ fi
 
 
 async def _run_remote_script(target: SetupSshTarget, script: str, timeout_seconds: float) -> dict[str, object]:
-    command = _ssh_command(target)
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    except FileNotFoundError:
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": "Comando ssh não encontrado no host do Printora."}
-    except OSError as exc:
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": str(exc)}
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(script.encode()),
-            timeout=timeout_seconds,
-        )
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": f"Timeout de SSH após {timeout_seconds:.0f}s."}
-    return {
-        "stdout": stdout_bytes.decode(errors="replace"),
-        "stderr": stderr_bytes.decode(errors="replace"),
-        "exit_code": process.returncode,
-        "error": None,
-    }
+    from app.agent_host import run_host_script_via_agent
 
-
-def _ssh_command(target: SetupSshTarget) -> list[str]:
-    command = [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        f"ConnectTimeout={max(1, int(target.timeout_seconds))}",
-        "-o",
-        "StrictHostKeyChecking=no",
-        "-o",
-        "UserKnownHostsFile=/dev/null",
-        "-o",
-        "LogLevel=ERROR",
-        "-p",
-        str(target.port),
-    ]
-    if target.auth_method == "key_path" and target.key_path:
-        command.extend(["-i", str(Path(target.key_path).expanduser())])
-    command.extend([f"{target.username}@{target.host}", "bash -s"])
-    return command
-
+    return await run_host_script_via_agent(
+        target,
+        script,
+        timeout_seconds=timeout_seconds,
+        kind="setup_firmware",
+    )
 
 def _blocked_build(request: SetupFirmwareBuildRequest, reasons: list[str], command_log: str) -> SetupFirmwareBuildResponse:
     return SetupFirmwareBuildResponse(
@@ -504,6 +468,12 @@ def _run_from_row(row) -> SetupFirmwareRunRecord:
         error_message=row["error_message"],
         created_at=row["created_at"],
     )
+
+
+def _scope_sql(table_alias: str, user_id: int | None, organization_ids: tuple[int, ...]) -> tuple[str, tuple[object, ...]]:
+    if user_id is None:
+        return "", ()
+    return scoped_where_clause(table_alias, user_id, organization_ids)
 
 
 def _preset(preset_id: str):

@@ -98,7 +98,8 @@ Validações:
 - validação pós-schema usa `PRAGMA integrity_check` e registra resultado em `schema_integrity_checks`;
 - falha de `integrity_check` bloqueia conclusão de `initialize_database()`;
 - reexecutar `initialize_database()` não duplica registros de versão;
-- `GET /api/system/version` retorna versão do app, `data_dir`, caminho do banco, scripts SQL aplicados, schema atual e última validação sem conteúdo do banco;
+- `GET /api/system/version` retorna somente metadados públicos de versão/schema, sem `data_dir`, caminho do banco, lista de scripts SQL ou resultado detalhado de integridade;
+- `GET /api/system/version/internal` exige usuário de suporte e retorna os detalhes internos de schema para diagnóstico local/suporte;
 - tabelas multi-impressora existem;
 - endpoints não armazenam credenciais;
 - fixtures ficam em `backend/tests/fixtures/`.
@@ -426,7 +427,8 @@ Critérios:
 
 ### Updater Do Printora
 
-- Confirmar que `GET /api/system/version` retorna versão do app, caminho de dados e schema aplicado.
+- Confirmar que `GET /api/system/version` retorna versão do app e schema aplicado sem caminhos locais.
+- Confirmar que `GET /api/system/version/internal` exige usuário de suporte para expor detalhes internos de schema.
 - Confirmar que `GET /api/system/releases` funciona com fixture local e com rede indisponível.
 - Confirmar que a tela Configurações mostra versão instalada, última release e changelog.
 - Chamar `POST /api/system/update/plan` com tag alvo e confirmar que apenas o banco local registra plano/etapas.

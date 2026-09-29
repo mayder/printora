@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Metric } from "../components/common";
+import { readSetupRecipe, writeSetupRecipe } from "../services/localPreferences";
+import { formatDateTime } from "../utils/formatters";
 import type { SetupCanPlanStep, SetupFinalValidationStatus, SetupFirmwarePlanStep, SetupFlashPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
-const SETUP_RECIPE_STORAGE_KEY = "printora.setup.recipe.v1";
 const manualRecipeKeys = ["os_image", "network", "ssh_enabled", "physical_ready", "printer_registered"] as const;
 type ManualRecipeKey = typeof manualRecipeKeys[number];
 type SetupGuide = {
@@ -198,7 +199,7 @@ const technicalGuides: Record<string, SetupGuide> = {
     options: [
       "Interface: use can0 salvo se seu sistema usa outro nome.",
       "Bitrate: 1000000 é comum em setups Klipper CAN modernos; mantenha igual entre U2C, mainboard e toolhead.",
-      "Aplicar CAN só fica efetivo quando o backend estiver em modo remoto e você digitar a confirmação.",
+      "Aplicar CAN só fica disponível quando a instalação permite configuração remota e você digita a confirmação.",
     ],
     steps: [
       "Confira interface e bitrate.",
@@ -214,7 +215,7 @@ const technicalGuides: Record<string, SetupGuide> = {
     pitfalls: [
       "Bitrate diferente entre placas impede comunicação.",
       "Aplicar CAN pode reiniciar interface de rede CAN; faça com a máquina parada.",
-      "Sem modo remoto habilitado no backend, a aplicação fica bloqueada por segurança.",
+      "Sem configuração remota habilitada, a aplicação fica bloqueada por segurança.",
     ],
   },
   firmware: {
@@ -479,18 +480,14 @@ export function SetupScreen(props: SetupScreenProps) {
   });
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(SETUP_RECIPE_STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as Partial<Record<ManualRecipeKey, boolean>>;
+    const parsed = readSetupRecipe<Record<ManualRecipeKey, boolean>>();
+    if (parsed) {
       setManualRecipeDone((current) => ({ ...current, ...parsed }));
-    } catch {
-      window.localStorage.removeItem(SETUP_RECIPE_STORAGE_KEY);
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(SETUP_RECIPE_STORAGE_KEY, JSON.stringify(manualRecipeDone));
+    writeSetupRecipe(manualRecipeDone);
   }, [manualRecipeDone]);
 
   const recipeSteps = useMemo(
@@ -897,7 +894,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
             Aplicar CAN
           </button>
-          <p>O backend ainda exige <code>PRINTORA_CAN_SETUP_MODE=remote</code>; sem isso a tentativa fica registrada como bloqueada.</p>
+          <p>A configuração remota precisa estar habilitada; caso contrário, a tentativa permanece bloqueada e registrada.</p>
         </div>
         {setupCanApplyResult ? (
           <div className={`action-result ${setupCanApplyResult.status === "ok" ? "success" : "warning"}`}>
@@ -987,7 +984,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
             Build remoto
           </button>
-          <p>O backend exige <code>PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote</code>; o build nunca executa flash.</p>
+          <p>A compilação remota precisa estar habilitada e nunca executa flash automaticamente.</p>
         </div>
         {setupFirmwareBuildResult ? (
           <div className={`action-result ${setupFirmwareBuildResult.status === "ok" ? "success" : "warning"}`}>
@@ -1088,7 +1085,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
             Executar flash
           </button>
-          <p>O backend exige <code>PRINTORA_REMOTE_FLASH_MODE=remote</code>; sem isso a tentativa fica bloqueada e registrada.</p>
+          <p>O flash remoto precisa estar habilitado; caso contrário, a tentativa permanece bloqueada e registrada.</p>
         </div>
         {setupFlashExecuteResult ? (
           <div className={`action-result ${setupFlashExecuteResult.status === "ok" ? "success" : "warning"}`}>
@@ -1186,7 +1183,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type === "plan" ? "Plano" : "Preflight"}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status} /></td>
@@ -1212,7 +1209,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupCanHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type} · {run.interface_name} · {run.bitrate}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status === "blocked" ? "error" : run.status} /></td>
@@ -1236,7 +1233,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupFirmwareHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type} · {run.board_name} · {run.preset_id}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status === "blocked" ? "error" : run.status} /></td>
@@ -1260,7 +1257,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupFlashHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type} · {run.board_name} · {run.flash_method}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status} /></td>
@@ -1284,7 +1281,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupFinalHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.interface_name} · {run.summary}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><FinalStatusBadge status={run.status} /></td>

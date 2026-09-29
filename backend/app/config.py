@@ -4,12 +4,16 @@ from pathlib import Path
 import platform
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 HostAuditMode = Literal["disabled", "local", "ssh"]
 FirmwareBuildMode = Literal["disabled", "local"]
 ReleaseSourceMode = Literal["github", "fixture", "disabled"]
+ObjectStorageMode = Literal["local", "s3"]
+PaymentMode = Literal["disabled", "sandbox"]
+ReconstructionMode = Literal["disabled", "fixture", "local_command", "provider_command"]
+TripoModelVersion = Literal["v3.1-20260211", "v3.0-20250812", "v2.5-20250123", "P1-20260311"]
 
 
 class Settings(BaseSettings):
@@ -35,6 +39,32 @@ class Settings(BaseSettings):
     self_update_unix_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "update_printora.sh")
     self_update_windows_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "update_printora_windows.ps1")
     self_update_timeout_seconds: float = 900.0
+    slicer_engine_path: Path | None = None
+    slicer_engine_timeout_seconds: float = 600.0
+    slicer_engine_work_dir: Path | None = None
+    redis_url: str | None = None
+    redis_prefix: str = "printora"
+    redis_timeout_seconds: float = 0.5
+    object_storage_mode: ObjectStorageMode = "local"
+    object_storage_endpoint_url: str = ""
+    object_storage_region: str = "us-east-1"
+    object_storage_access_key: str = ""
+    object_storage_secret_key: str = ""
+    object_storage_quarantine_bucket: str = "printora-quarantine"
+    object_storage_objects_bucket: str = "printora-objects"
+    object_storage_artifacts_bucket: str = "printora-artifacts"
+    payment_mode: PaymentMode = "disabled"
+    payment_webhook_secret: str = ""
+    platform_admin_emails: str = "breno@mayder.com.br"
+    platform_protection_writes_enabled: bool = True
+    reconstruction_mode: ReconstructionMode = "disabled"
+    reconstruction_local_command: Path | None = None
+    reconstruction_provider_command: Path | None = None
+    reconstruction_tripo_api_key: SecretStr = SecretStr("")
+    reconstruction_tripo_state_dir: Path | None = None
+    reconstruction_tripo_model_version: TripoModelVersion = "v3.1-20260211"
+    reconstruction_timeout_seconds: float = 3600.0
+    reconstruction_max_active_per_user: int = 2
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -45,6 +75,10 @@ class Settings(BaseSettings):
     @property
     def database_path(self) -> Path:
         return self.data_dir / "printora.db"
+
+    @property
+    def platform_admin_email_set(self) -> frozenset[str]:
+        return parse_platform_admin_emails(self.platform_admin_emails)
 
 
 @lru_cache
@@ -58,3 +92,16 @@ def _default_data_dir() -> Path:
     if platform.system() == "Windows":
         return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "Printora"
     return Path.home() / ".local/share/printora"
+
+
+def parse_platform_admin_emails(value: str) -> frozenset[str]:
+    emails = frozenset(item.strip().casefold() for item in value.split(",") if item.strip())
+    if any(
+        email.count("@") != 1
+        or email.startswith("@")
+        or email.endswith("@")
+        or any(character.isspace() for character in email)
+        for email in emails
+    ):
+        raise ValueError("PRINTORA_PLATFORM_ADMIN_EMAILS contém email inválido")
+    return emails

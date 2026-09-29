@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import shlex
@@ -10,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.auth import scoped_where_clause
 from app.database import connect_database
 from app.reports import Sanitizer
 from app.setup_firmware import _line_value, _parse_output_sections, _trim
@@ -99,6 +99,8 @@ class SetupFinalValidationRunRecord(BaseModel):
 @dataclass(frozen=True)
 class SetupFinalValidationRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def create_run(self, request: SetupFinalValidationRequest, response: SetupFinalValidationResponse) -> int:
         target = request.target
@@ -108,9 +110,9 @@ class SetupFinalValidationRepository:
                 INSERT INTO setup_final_validation_runs (
                     status, safe_mode, target_host, target_port, target_user,
                     interface_name, expected_uuids_json, summary, checks_json,
-                    sections_json, report_markdown, error_message
+                    sections_json, report_markdown, error_message, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     response.status,
@@ -125,22 +127,25 @@ class SetupFinalValidationRepository:
                     json.dumps(response.sections, ensure_ascii=False),
                     response.report_markdown,
                     response.error,
+                    self.user_id,
                 ),
             )
             return int(cursor.lastrowid)
 
     def list_runs(self, limit: int = 20) -> list[SetupFinalValidationRunRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = _scope_sql("setup_final_validation_runs", self.user_id, self.organization_ids)
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, status, safe_mode, target_host, target_port, target_user,
                        interface_name, expected_uuids_json, summary, checks_json,
                        report_markdown, error_message, created_at
                 FROM setup_final_validation_runs
+                {where_clause}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
 
@@ -449,53 +454,14 @@ def _sanitize_sections(sections: dict[str, str]) -> dict[str, str]:
 
 
 async def _run_remote_script(target: SetupSshTarget, script: str, timeout_seconds: float) -> dict[str, object]:
-    command = _ssh_command(target)
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    except FileNotFoundError:
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": "Comando ssh não encontrado no host do Printora."}
-    except OSError as exc:
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": str(exc)}
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(process.communicate(script.encode()), timeout=timeout_seconds)
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": f"Timeout de SSH após {timeout_seconds:.0f}s."}
-    return {
-        "stdout": stdout_bytes.decode(errors="replace"),
-        "stderr": stderr_bytes.decode(errors="replace"),
-        "exit_code": process.returncode,
-        "error": None,
-    }
+    from app.agent_host import run_host_script_via_agent
 
-
-def _ssh_command(target: SetupSshTarget) -> list[str]:
-    command = [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        f"ConnectTimeout={max(1, int(target.timeout_seconds))}",
-        "-o",
-        "StrictHostKeyChecking=no",
-        "-o",
-        "UserKnownHostsFile=/dev/null",
-        "-o",
-        "LogLevel=ERROR",
-        "-p",
-        str(target.port),
-    ]
-    if target.auth_method == "key_path" and target.key_path:
-        command.extend(["-i", str(Path(target.key_path).expanduser())])
-    command.extend([f"{target.username}@{target.host}", "bash -s"])
-    return command
-
+    return await run_host_script_via_agent(
+        target,
+        script,
+        timeout_seconds=timeout_seconds,
+        kind="setup_final_validation",
+    )
 
 def _connection_error_response(
     request: SetupFinalValidationRequest,
@@ -535,3 +501,9 @@ def _run_from_row(row) -> SetupFinalValidationRunRecord:
         error_message=row["error_message"],
         created_at=row["created_at"],
     )
+
+
+def _scope_sql(table_alias: str, user_id: int | None, organization_ids: tuple[int, ...]) -> tuple[str, tuple[object, ...]]:
+    if user_id is None:
+        return "", ()
+    return scoped_where_clause(table_alias, user_id, organization_ids)

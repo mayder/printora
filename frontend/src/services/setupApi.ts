@@ -1,4 +1,4 @@
-import { apiRequest } from "./http";
+import { apiRequest, getStoredStepUpToken } from "./http";
 import type {
   SetupCanApplyResponse,
   SetupCanPlanResponse,
@@ -48,7 +48,7 @@ export const setupApi = {
   canApply: (body: unknown) =>
     apiRequest<SetupCanApplyResponse>("/api/setup/can/apply", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: protectedHeaders(),
       body: JSON.stringify(body),
     }),
   canHistory: () => apiRequest<{ runs: SetupCanRunRecord[] }>("/api/setup/can/history"),
@@ -61,7 +61,7 @@ export const setupApi = {
   firmwareBuild: (body: unknown) =>
     apiRequest<SetupFirmwareBuildResponse>("/api/setup/firmware/build", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: protectedHeaders(),
       body: JSON.stringify(body),
     }),
   firmwareHistory: () => apiRequest<{ runs: SetupFirmwareRunRecord[] }>("/api/setup/firmware/history"),
@@ -80,7 +80,7 @@ export const setupApi = {
   flashExecute: (body: unknown) =>
     apiRequest<SetupFlashExecuteResponse>("/api/setup/flash/execute", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: protectedHeaders(),
       body: JSON.stringify(body),
     }),
   flashHistory: () => apiRequest<{ runs: SetupFlashRunRecord[] }>("/api/setup/flash/history"),
@@ -92,3 +92,11 @@ export const setupApi = {
     }),
   finalValidationHistory: () => apiRequest<{ runs: SetupFinalValidationRunRecord[] }>("/api/setup/final-validation/history"),
 };
+
+function protectedHeaders(): Record<string, string> {
+  const token = getStoredStepUpToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "X-Printora-Step-Up": token } : {}),
+  };
+}

@@ -2,7 +2,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.auth import AuthRepository, UserRegisterRequest
 from app.config import get_settings
+from app.database import initialize_database
 from app.install_diagnostics import _parse_raspberry_throttling
 from app.main import app
 
@@ -10,11 +12,35 @@ from app.main import app
 def test_install_diagnostics_endpoint_returns_actionable_status(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("PRINTORA_PORT", "8069")
+    monkeypatch.setenv(
+        "PRINTORA_PLATFORM_ADMIN_EMAILS",
+        "install-admin@example.test",
+    )
     get_settings.cache_clear()
+    initialize_database(tmp_path / "printora.db")
     try:
         with TestClient(app) as client:
-            response = client.get("/api/system/install-diagnostics")
+            anonymous = client.get("/api/system/install-diagnostics")
+            AuthRepository(tmp_path / "printora.db").create_user(
+                UserRegisterRequest(
+                    email="install-admin@example.test",
+                    password="correct-horse",
+                )
+            )
+            login = client.post(
+                "/api/auth/login",
+                json={
+                    "email": "install-admin@example.test",
+                    "password": "correct-horse",
+                },
+            )
+            token = login.json()["access_token"]
+            response = client.get(
+                "/api/system/install-diagnostics",
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
+        assert anonymous.status_code == 401
         assert response.status_code == 200
         payload = response.json()
         assert payload["safe_mode"] == "read_only"

@@ -1,0 +1,779 @@
+.gcode-files-screen {
+  display: grid;
+  gap: 16px;
+}
+
+.gcode-files-topbar,
+.gcode-files-controls,
+.gcode-files-metrics {
+  display: grid;
+  gap: 12px;
+}
+
+.gcode-files-topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.gcode-files-topbar > div,
+.gcode-upload-heading > div,
+.gcode-manager-section > div:first-child {
+  min-width: 0;
+}
+
+.gcode-files-topbar h2 {
+  margin: 0;
+}
+
+.gcode-files-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gcode-files-metric {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-content: center;
+  min-height: 70px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 12px;
+}
+
+.gcode-files-metric svg {
+  grid-row: span 3;
+  color: var(--accent);
+}
+
+.gcode-files-metric span,
+.gcode-files-metric small {
+  min-width: 0;
+  color: var(--muted);
+}
+
+.gcode-files-metric span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.gcode-files-metric strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1.15rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gcode-files-metric small {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gcode-files-controls {
+  grid-template-columns: minmax(240px, 1fr) minmax(160px, 0.45fr) minmax(150px, 0.35fr) minmax(150px, 0.35fr);
+}
+
+.gcode-search-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 0 11px;
+}
+
+.gcode-search-field svg {
+  color: var(--muted);
+}
+
+.gcode-search-field input,
+.gcode-files-controls select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.gcode-search-field input {
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+}
+
+.gcode-files-controls select {
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+.gcode-files-state {
+  margin: 0;
+}
+
+.gcode-upload-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.gcode-upload-heading,
+.gcode-upload-actions,
+.gcode-upload-list li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gcode-upload-heading > div,
+.gcode-manager-section > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.gcode-upload-heading strong,
+.gcode-upload-heading span,
+.gcode-manager-section strong,
+.gcode-manager-section span {
+  display: block;
+  min-width: 0;
+}
+
+.gcode-upload-heading span,
+.gcode-manager-section span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.gcode-upload-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gcode-upload-list li {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+
+.gcode-manager-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.gcode-manager-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 10px;
+}
+
+.gcode-manager-section > div:first-child {
+  min-width: 210px;
+  flex: 1;
+}
+
+.gcode-manager-section input,
+.gcode-manager-section select {
+  min-height: 38px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 9px;
+}
+
+.gcode-file-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.gcode-file-editor textarea {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+
+
+.gcode-files-empty-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 88px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 16px;
+}
+
+.gcode-files-empty-state svg {
+  color: var(--accent);
+}
+
+.gcode-files-empty-state strong,
+.gcode-files-empty-state span {
+  display: block;
+  min-width: 0;
+}
+
+.gcode-files-empty-state span {
+  color: var(--muted);
+}
+
+.gcode-files-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.gcode-files-full-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+.gcode-files-full-table th,
+.gcode-files-full-table td {
+  border-bottom: 1px solid var(--border-soft);
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.gcode-files-full-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gcode-files-full-table td {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.gcode-files-full-table tbody tr:hover,
+.gcode-files-full-table tbody tr.is-selected {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.gcode-file-name-cell {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 260px;
+}
+
+.gcode-file-name-cell strong,
+.gcode-file-open-button,
+.gcode-file-name-cell span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gcode-file-open-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+  text-align: left;
+}
+
+.gcode-file-open-button:hover {
+  color: var(--accent);
+}
+
+.gcode-file-name-cell span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.gcode-file-thumbnail {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 32px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+  object-fit: contain;
+}
+
+.gcode-file-thumbnail-fallback {
+  color: var(--muted);
+}
+
+.gcode-file-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  justify-items: end;
+  background: rgb(0 0 0 / 0.38);
+}
+
+.gcode-file-drawer {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  width: min(680px, 100vw);
+  height: 100vh;
+  overflow-y: auto;
+  border-left: 1px solid var(--border-soft);
+  background: var(--surface);
+  box-shadow: -16px 0 40px rgb(0 0 0 / 0.22);
+  padding: 18px;
+}
+
+.gcode-file-drawer-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.gcode-file-drawer-header h3,
+.gcode-file-actions h4,
+.gcode-file-protected-actions h4,
+.gcode-file-preview h4,
+.gcode-file-history h4 {
+  margin: 0;
+}
+
+.gcode-file-detail-hero {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.gcode-file-detail-hero .gcode-file-thumbnail {
+  width: 120px;
+  height: 96px;
+}
+
+.gcode-file-detail-facts,
+.gcode-file-detail-grid,
+.gcode-file-actions,
+.gcode-file-protected-actions,
+.gcode-file-preview,
+.gcode-file-history {
+  display: grid;
+  gap: 10px;
+}
+
+.gcode-file-detail-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gcode-file-detail-facts .gcode-files-metric {
+  min-height: 64px;
+}
+
+.gcode-file-detail-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gcode-file-detail-item,
+.gcode-file-action-card,
+.gcode-file-history li {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.gcode-file-detail-item span,
+.gcode-file-history span,
+.gcode-file-history small,
+.gcode-file-action-card span {
+  display: block;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.gcode-file-detail-item strong,
+.gcode-file-action-card strong {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gcode-file-action-row,
+.gcode-file-action-cards {
+  display: grid;
+  gap: 8px;
+}
+
+.gcode-file-action-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gcode-file-action-row button,
+.gcode-file-action-card button {
+  justify-content: center;
+}
+
+.gcode-file-action-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.gcode-file-action-card.danger {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border-soft));
+}
+
+.gcode-file-protected-actions label {
+  display: grid;
+  gap: 5px;
+}
+
+.gcode-file-protected-actions input {
+  min-height: 40px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 10px;
+}
+
+.gcode-file-preview pre {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.gcode-file-preview-3d {
+  --print-viewer-target-height: clamp(380px, 48vh, 560px);
+}
+
+.gcode-file-preview-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(96px, 120px);
+  gap: 10px;
+  align-items: end;
+}
+
+.gcode-file-preview-modes {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.gcode-file-preview-controls label {
+  display: grid;
+  gap: 4px;
+}
+
+.gcode-file-preview-controls label span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.gcode-file-preview-controls input {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 8px;
+}
+
+.segmented-button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.segmented-button.active {
+  background: var(--accent);
+  color: #07131d;
+}
+
+.gcode-file-history ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 1120px) {
+  .gcode-files-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gcode-files-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gcode-file-detail-hero,
+  .gcode-file-detail-grid,
+  .gcode-file-detail-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .gcode-files-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-files-topbar > .secondary-button {
+    justify-self: start;
+  }
+
+  .gcode-files-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gcode-files-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-upload-heading,
+  .gcode-upload-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .gcode-upload-heading .secondary-button,
+  .gcode-upload-actions button {
+    width: 100%;
+  }
+
+  .gcode-manager-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .gcode-manager-section > div:first-child {
+    min-width: 0;
+  }
+
+  .gcode-manager-section input,
+  .gcode-manager-section select,
+  .gcode-manager-section button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .gcode-files-table-wrap {
+    border: 0;
+    background: transparent;
+  }
+
+  .gcode-files-full-table {
+    display: grid;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .gcode-files-full-table thead {
+    display: none;
+  }
+
+  .gcode-files-full-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .gcode-files-full-table tr,
+  .gcode-files-full-table td {
+    display: block;
+  }
+
+  .gcode-files-full-table tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: var(--surface-2);
+    padding: 16px;
+  }
+
+  .gcode-files-full-table td {
+    border: 0;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .gcode-files-full-table td:first-child {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+  }
+
+  .gcode-files-full-table td:nth-child(2) {
+    grid-column: 1 / -1;
+    padding-right: 48px;
+  }
+
+  .gcode-files-full-table td.gcode-file-empty-value {
+    display: none;
+  }
+
+  .gcode-files-full-table td:not(:first-child)::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .gcode-files-full-table td:nth-child(2)::before {
+    content: "Arquivo";
+  }
+
+  .gcode-files-full-table td:nth-child(3)::before {
+    content: "Atualizado";
+  }
+
+  .gcode-files-full-table td:nth-child(4)::before {
+    content: "Tamanho";
+  }
+
+  .gcode-files-full-table td:nth-child(5)::before {
+    content: "Objeto";
+  }
+
+  .gcode-files-full-table td:nth-child(6)::before {
+    content: "Camada";
+  }
+
+  .gcode-files-full-table td:nth-child(7)::before {
+    content: "Bico";
+  }
+
+  .gcode-files-full-table td:nth-child(8)::before {
+    content: "Filamento";
+  }
+
+  .gcode-files-full-table td:nth-child(9)::before {
+    content: "Tempo";
+  }
+
+  .gcode-file-drawer {
+    width: 100vw;
+    padding: 14px;
+  }
+
+  .gcode-file-drawer-header,
+  .gcode-file-detail-hero,
+  .gcode-file-detail-grid,
+  .gcode-file-detail-facts,
+  .gcode-file-preview-controls,
+  .gcode-file-action-row,
+  .gcode-file-action-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-file-preview-modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .gcode-file-detail-hero .gcode-file-thumbnail {
+    width: 100%;
+    height: 120px;
+  }
+
+  .gcode-files-full-table td:nth-child(10)::before {
+    content: "Temperaturas";
+  }
+
+  .gcode-files-full-table td:nth-child(11)::before {
+    content: "Slicer";
+  }
+
+  .gcode-files-full-table td:nth-child(12)::before {
+    content: "Última impressão";
+  }
+
+  .gcode-file-name-cell {
+    min-width: 0;
+  }
+
+  .gcode-file-open-button {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 360px) {
+  .gcode-files-metrics,
+  .gcode-files-full-table tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

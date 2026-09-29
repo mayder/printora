@@ -1,11 +1,19 @@
 import { createRoot } from "react-dom/client";
-import { Bell, Info, Menu, X } from "lucide-react";
-import { appSections } from "./app/navigation";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Bell, ChevronDown, Info, LogOut, Menu, UserRound, Users, X } from "lucide-react";
+import { accessibilitySection, appSections } from "./app/navigation";
+import type { AppSection } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
+import { AgentsScreen } from "./screens/AgentsScreen";
+import { AgentDetailScreen } from "./screens/AgentDetailScreen";
+import { PrintProjectsScreen } from "./screens/PrintProjectsScreen";
+import { SocialScreen } from "./screens/SocialScreen";
+import { CatalogAdminScreen } from "./screens/CatalogAdminScreen";
 import { SetupScreen } from "./screens/SetupScreen";
+import { PrinterDetailScreen } from "./screens/PrinterDetailScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
 import { TestsScreen } from "./screens/TestsScreen";
@@ -13,58 +21,194 @@ import { FirmwareScreen } from "./screens/FirmwareScreen";
 import { MaintenanceScreen } from "./screens/MaintenanceScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { FinanceAdminScreen } from "./screens/FinanceAdminScreen";
+import { ManufacturingAdminScreen } from "./screens/ManufacturingAdminScreen";
+import { DataIntelligenceScreen } from "./screens/DataIntelligenceScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
+import { PublicProfileScreen } from "./screens/PublicProfileScreen";
+import { PublicPrinterScreen } from "./screens/PublicPrinterScreen";
+import { PublicCommunityScreen } from "./screens/PublicCommunityScreen";
 import { usePrintoraApp } from "./hooks/usePrintoraApp";
 import "./styles.css";
 import "./styles/overview.css";
 import "./styles/monitoring.css";
+import "./styles/gcode-files.css";
 import "./styles/operation.css";
 import "./styles/printers.css";
 import "./styles/modals.css";
 import "./styles/backups.css";
 import "./styles/maintenance.css";
 import "./styles/settings.css";
+import "./styles/finance.css";
+import "./styles/manufacturing.css";
+import "./styles/auth.css";
 import "./styles/setup.css";
 import "./styles/firmware.css";
 import "./styles/calibration.css";
 import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
+import "./styles/print-projects.css";
+import "./styles/social.css";
+import "./styles/catalog-admin.css";
+import "./styles/data-intelligence.css";
+import { readDocumentTheme } from "./services/localPreferences";
+import { readDesignLabDraft } from "./services/designSystemDraft";
+
+const DesignSystemScreen = lazy(async () => {
+  const module = await import("./screens/DesignSystemScreen");
+  return { default: module.DesignSystemScreen };
+});
+
+const AccessibilityScreen = lazy(async () => {
+  const module = await import("./screens/AccessibilityScreen");
+  return { default: module.AccessibilityScreen };
+});
+
+const OnboardingScreen = lazy(async () => {
+  const module = await import("./screens/OnboardingScreen");
+  return { default: module.OnboardingScreen };
+});
+
+const MaterialsScreen = lazy(async () => {
+  const module = await import("./screens/materials/MaterialsScreen");
+  return { default: module.MaterialsScreen };
+});
+
+const AuthScreen = lazy(async () => {
+  const module = await import("./screens/AuthScreen");
+  return { default: module.AuthScreen };
+});
+
+type AccountTab = "profile" | "organizations" | "accessibility";
+
+function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection) => void) {
+  if (tab === "accessibility") {
+    window.history.pushState(null, "", "/?section=accessibility");
+    return setActiveSection(tab);
+  }
+  (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab = tab;
+  setActiveSection("account");
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("printora:account-tab", { detail: tab }));
+  }, 0);
+}
+
+function useStoredDocumentPreferences() {
+  useEffect(() => {
+    document.documentElement.dataset.theme = readDocumentTheme();
+    const draft = readDesignLabDraft(window.localStorage);
+    document.documentElement.dataset.density = draft.density;
+    document.documentElement.dataset.reduceMotion = draft.reduce_motion ? "true" : "false";
+  }, []);
+}
 
 function App() {
+  useStoredDocumentPreferences();
+  const publicProfileSlug = readPublicProfilePathSlug();
+  const embeddedProfileSlug = readEmbeddedProfileSlug();
+  const publicPrinterId = readPublicPrinterId();
+  const publicCommunitySlug = readPublicCommunitySlug();
+  if (publicProfileSlug) {
+    return <PublicProfileScreen slug={publicProfileSlug} />;
+  }
+  if (publicPrinterId) {
+    return <PublicPrinterScreen printerId={publicPrinterId} />;
+  }
+
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const {
     ActiveIcon,
     ThemeIcon,
-    TopbarPrimaryIcon,
     activeSection,
     activeSectionMeta,
     alertCount,
-    error,
     mobileNavOpen,
-    printers,
     screenProps,
-    selectPrinter,
     selectedPrinter,
-    selectedPrinterId,
     setActiveSection,
     setAlertCenterOpen,
     setMobileNavOpen,
     setTheme,
     theme,
     topbarAlertTone,
-    topbarPrimaryAction,
     toasts,
     dismissToast,
     visibleNavGroups,
   } = usePrintoraApp();
+  useEffect(() => {
+    if (publicCommunitySlug || embeddedProfileSlug) {
+      setActiveSection("social");
+    }
+  }, [publicCommunitySlug, embeddedProfileSlug, setActiveSection]);
+  const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
+  useEffect(() => {
+    if (!screenProps.authUser) return;
+    let active = true;
+    void Promise.all([
+      import("./services/accessibilityApi"),
+      import("./services/accessibilityDocument"),
+    ]).then(async ([apiModule, documentModule]) => {
+      const preferences = await apiModule.accessibilityApi.preferences();
+      if (active) {
+        documentModule.applyAccessibilityPreferences(preferences);
+      }
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [screenProps.authUser?.id]);
+  const accountMenuItems = [
+    { label: "Organizações", icon: Users, tab: "organizations" as const },
+    { label: "Perfil", icon: UserRound, tab: "profile" as const },
+    { label: "Acessibilidade", icon: accessibilitySection.icon, tab: "accessibility" as const },
+  ];
+  const shellSection =
+    publicCommunitySlug || embeddedProfileSlug
+      ? "social"
+      : activeSection === "design-system" && screenProps.authUser?.platform_admin !== true
+        ? "overview"
+        : activeSection;
+  const shellSectionMeta = appSections.find((section) => section.key === shellSection) ?? activeSectionMeta;
+  const ShellIcon = publicCommunitySlug || embeddedProfileSlug ? Users : shellSectionMeta.icon;
 
   const activeScreen = (() => {
-    switch (activeSection) {
+    if (publicCommunitySlug) {
+      return <PublicCommunityScreen slug={publicCommunitySlug} embedded />;
+    }
+    if (embeddedProfileSlug) {
+      return <PublicProfileScreen slug={embeddedProfileSlug} embedded />;
+    }
+    switch (shellSection) {
       case "overview":
         return <OverviewScreen {...screenProps} />;
+      case "onboarding":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando primeiros passos.</section>}>
+            <OnboardingScreen {...screenProps} />
+          </Suspense>
+        );
       case "printers":
         return <PrintersScreen {...screenProps} />;
+      case "printer-detail":
+        return <PrinterDetailScreen {...screenProps} />;
+      case "agents":
+        return <AgentsScreen {...screenProps} />;
+      case "agent-detail":
+        return <AgentDetailScreen {...screenProps} />;
+      case "projects":
+        return <PrintProjectsScreen {...screenProps} />;
+      case "materials":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando materiais.</section>}>
+            <MaterialsScreen {...screenProps} />
+          </Suspense>
+        );
+      case "social":
+        return <SocialScreen {...screenProps} />;
+      case "catalog":
+        return <CatalogAdminScreen {...screenProps} />;
       case "setup":
         return <SetupScreen {...screenProps} />;
       case "monitoring":
@@ -81,6 +225,30 @@ function App() {
         return <ReportsScreen {...screenProps} />;
       case "settings":
         return <SettingsScreen {...screenProps} />;
+      case "finance":
+        return <FinanceAdminScreen {...screenProps} />;
+      case "manufacturing":
+        return <ManufacturingAdminScreen {...screenProps} />;
+      case "data-intelligence":
+        return <DataIntelligenceScreen {...screenProps} />;
+      case "design-system":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando design system.</section>}>
+            <DesignSystemScreen confirmAction={screenProps.confirmAction} />
+          </Suspense>
+        );
+      case "accessibility":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando acessibilidade.</section>}>
+            <AccessibilityScreen />
+          </Suspense>
+        );
+      case "account":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando conta.</section>}>
+            <AuthScreen {...screenProps} />
+          </Suspense>
+        );
       case "about":
         return <AboutScreen {...screenProps} />;
       case "license":
@@ -89,6 +257,33 @@ function App() {
         return <OverviewScreen {...screenProps} />;
     }
   })();
+
+  if (!screenProps.authUser && !screenProps.authReady) {
+    return (
+      <main className="auth-only-shell">
+        <section className="auth-card" aria-label="Validando sessão">
+          <span className="auth-eyebrow">Sessão</span>
+          <h2>Validando acesso</h2>
+          <p>Carregando sua sessão do Printora.</p>
+        </section>
+        <ToastViewport toasts={toasts} dismissToast={dismissToast} />
+      </main>
+    );
+  }
+
+  if (!screenProps.authUser) {
+    if (publicCommunitySlug) {
+      return <PublicCommunityScreen slug={publicCommunitySlug} />;
+    }
+    return (
+      <main className="auth-only-shell">
+        <Suspense fallback={<section className="auth-card" aria-live="polite">Carregando conta.</section>}>
+          <AuthScreen {...screenProps} />
+        </Suspense>
+        <ToastViewport toasts={toasts} dismissToast={dismissToast} />
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">
@@ -119,8 +314,18 @@ function App() {
                   <button
                     key={section.key}
                     type="button"
-                    className={`nav-button ${activeSection === section.key ? "active" : ""}`}
+                    className={`nav-button ${shellSection === section.key ? "active" : ""}`}
                     onClick={() => {
+                      if (
+                        window.location.pathname.startsWith("/community/design_system/")
+                        || window.location.pathname.startsWith("/community/accessibility/")
+                        || section.key === "design-system"
+                        || section.key === "accessibility"
+                        || publicCommunitySlug
+                        || embeddedProfileSlug
+                      ) {
+                        window.history.pushState(null, "", `/?section=${section.key}`);
+                      }
                       setActiveSection(section.key);
                       setMobileNavOpen(false);
                     }}
@@ -136,60 +341,45 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span>Impressora ativa</span>
-          <strong>{selectedPrinter?.name ?? "não selecionada"}</strong>
-          <small>{selectedPrinter?.moonraker_url ?? "Cadastre ou selecione uma impressora."}</small>
+          <span>Contexto rápido</span>
+          <strong>{selectedPrinter?.name ?? "nenhuma impressora"}</strong>
+          <small>{selectedPrinter ? "Impressora selecionada" : "Abra uma impressora pela lista."}</small>
         </div>
       </aside>
       {mobileNavOpen ? <button type="button" className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Fechar menu" /> : null}
 
-      <div className={`workspace section-${activeSection}`}>
+      <div className={`workspace section-${shellSection}`}>
         <header className="topbar">
           <div className="topbar-title">
             <button type="button" className="icon-button mobile-menu-button" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu">
               <Menu size={18} />
             </button>
             <span className="section-icon">
-              <ActiveIcon size={18} strokeWidth={2.2} />
+              <ShellIcon size={18} strokeWidth={2.2} />
             </span>
             <div>
-              <h1>{activeSectionMeta.label}</h1>
+              <h1>{shellSectionMeta.label}</h1>
             </div>
           </div>
           <div className="topbar-actions">
             <button
               type="button"
-              className={`icon-button topbar-info ${activeSection === "about" || activeSection === "license" ? "active" : ""}`}
+              className={`icon-button topbar-alert ${topbarAlertTone}`}
+              title="Alertas da frota"
+              aria-label={alertCount > 0 ? `${alertCount} alerta(s) da frota` : "Sem alertas da frota"}
+              onClick={() => setAlertCenterOpen(true)}
+            >
+              <Bell size={16} />
+              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
+            </button>
+            <button
+              type="button"
+              className={`icon-button topbar-info ${shellSection === "about" || shellSection === "license" ? "active" : ""}`}
               title="Sobre o Printora"
               aria-label="Sobre o Printora"
               onClick={() => setActiveSection("about")}
             >
               <Info size={17} />
-            </button>
-            <label className="topbar-printer context-select" aria-label="Impressora ativa">
-              <select
-                value={selectedPrinterId ?? ""}
-                onChange={(event) => selectPrinter(Number(event.target.value))}
-              >
-                <option value="" disabled>
-                  Selecione uma impressora
-                </option>
-                {printers.map((printer) => (
-                  <option key={printer.id} value={printer.id}>
-                    {printer.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className={`icon-button topbar-alert ${topbarAlertTone}`}
-              title="Alertas"
-              aria-label={alertCount > 0 ? `${alertCount} alerta(s)` : "Sem alertas"}
-              onClick={() => setAlertCenterOpen(true)}
-            >
-              <Bell size={16} />
-              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
             </button>
             <button
               type="button"
@@ -200,42 +390,98 @@ function App() {
             >
               <ThemeIcon size={18} />
             </button>
-            <button
-              type="button"
-              className="icon-button topbar-primary"
-              title={topbarPrimaryAction.label}
-              aria-label={topbarPrimaryAction.label}
-              onClick={() => void topbarPrimaryAction.run()}
-              disabled={topbarPrimaryAction.disabled}
-            >
-              <TopbarPrimaryIcon className={topbarPrimaryAction.busy ? "button-busy-icon" : undefined} size={16} />
-            </button>
+            <div className="topbar-account">
+              <button
+                type="button"
+                className={`account-menu-button ${accountMenuOpen ? "active" : ""}`}
+                aria-expanded={accountMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setAccountMenuOpen((current) => !current)}
+              >
+                <span className="account-avatar">
+                  <UserRound size={16} />
+                </span>
+                <span className="account-menu-label">
+                  <strong>{userLabel}</strong>
+                  <small>{screenProps.authUser?.mfa_enabled ? "2FA ativo" : "2FA inativo"}</small>
+                </span>
+                <ChevronDown size={15} />
+              </button>
+              {accountMenuOpen ? (
+                <div className="account-dropdown" role="menu">
+                  {accountMenuItems.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          openAccountTab(item.tab, setActiveSection);
+                          setAccountMenuOpen(false);
+                        }}
+                      >
+                        <ItemIcon size={16} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="danger"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      void screenProps.logoutAuth();
+                    }}
+                  >
+                    <LogOut size={16} />
+                    <span>Sair</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
 
         <section className="page-helper">
-          <strong>{activeSectionMeta.purpose}</strong>
+          <strong>{shellSectionMeta.purpose}</strong>
           <span>
-            {activeSection === "settings"
+            {publicCommunitySlug
+              ? "Comunidade pública com conteúdo técnico e dados autorizados"
+              : embeddedProfileSlug
+                ? "Perfil público com ações sociais e dados autorizados"
+              : shellSection === "settings"
               ? "Configuração global do Printora"
-              : activeSection === "setup"
+              : shellSection === "printer-detail"
+                ? selectedPrinter
+                  ? `Registro aberto: ${selectedPrinter.name}`
+                  : "Abra uma impressora pela lista"
+              : shellSection === "agent-detail"
+                ? "Registro do agente selecionado"
+              : shellSection === "account"
+                ? "Identidade, segurança e organizações"
+              : shellSection === "setup"
                 ? "Provisionamento começa somente depois que Linux e SSH estão ativos"
-              : activeSection === "about"
+              : shellSection === "overview"
+                ? "Resumo global da frota"
+              : shellSection === "printers"
+                ? "Lista de impressoras e acesso ao detalhe"
+              : shellSection === "agents"
+                ? "Lista global de agentes da frota"
+              : shellSection === "social"
+                ? "Descoberta pública e comunidade"
+              : shellSection === "reports"
+                ? "Relatórios globais; diagnóstico de impressora fica no detalhe"
+              : shellSection === "about"
                 ? "Autoria, roadmap público e identidade do projeto"
-                : activeSection === "license"
+                : shellSection === "license"
                   ? "Uso open source com limites de responsabilidade"
               : selectedPrinter
                 ? `Contexto atual: ${selectedPrinter.name}`
                 : "Selecione uma impressora para carregar os dados por contexto."}
           </span>
         </section>
-        <button type="button" className="primary-button mobile-section-action" onClick={() => void topbarPrimaryAction.run()} disabled={topbarPrimaryAction.disabled}>
-          <TopbarPrimaryIcon size={16} />
-          {topbarPrimaryAction.label}
-        </button>
-
-        {error ? <section className="alert danger">{error}</section> : null}
-
         <AppModals {...screenProps} />
         <ToastViewport toasts={toasts} dismissToast={dismissToast} />
 
@@ -245,6 +491,37 @@ function App() {
       </div>
     </main>
   );
+}
+
+function readPublicProfilePathSlug() {
+  const pathMatch = window.location.pathname.match(/^\/u\/([a-z0-9-]+)\/?$/i);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+  return null;
+}
+
+function readEmbeddedProfileSlug() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("profile") || params.get("u");
+}
+
+function readPublicPrinterId() {
+  const pathMatch = window.location.pathname.match(/^\/p\/([0-9]+)\/?$/i);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("printer");
+}
+
+function readPublicCommunitySlug() {
+  const pathMatch = window.location.pathname.match(/^\/c\/([a-z0-9-]+)\/?$/i);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("community") || params.get("c");
 }
 
 

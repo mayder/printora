@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from fastapi import Depends, Header, HTTPException
+
 from app.routes.support import *
+from app.auth import AuthRepository, current_auth_scope
+from app.modules.identity.contracts import CurrentUser
+from app.platform_access import is_platform_admin
+from app.routes.auth import get_auth_repository, require_current_user_when_configured
 from app.setup_can import (
     SetupCanApplyRequest,
     SetupCanApplyResponse,
@@ -52,27 +58,56 @@ from app.setup_wizard import (
     run_setup_ssh_preflight,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
+
+
+def require_setup_administrator(
+    current: CurrentUser | None = Depends(require_current_user_when_configured),
+) -> CurrentUser | None:
+    if current is not None and not is_platform_admin(current.user.email):
+        raise HTTPException(status_code=403, detail="operação de setup exige administrador da plataforma")
+    return current
+
+
+def require_setup_step_up(
+    x_printora_step_up: str | None = Header(default=None),
+    current: CurrentUser | None = Depends(require_setup_administrator),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> CurrentUser | None:
+    if current is None:
+        return None
+    if not x_printora_step_up or not repository.consume_step_up(
+        current.user.id,
+        x_printora_step_up,
+        "setup_physical_operation",
+    ):
+        raise HTTPException(status_code=403, detail="autorização reforçada obrigatória para operação física")
+    return current
 
 
 def get_setup_ssh_repository(settings: Settings) -> SetupSshRunRepository:
-    return SetupSshRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupSshRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_can_repository(settings: Settings) -> SetupCanRunRepository:
-    return SetupCanRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupCanRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_firmware_repository(settings: Settings) -> SetupFirmwareRunRepository:
-    return SetupFirmwareRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupFirmwareRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_flash_repository(settings: Settings) -> SetupFlashRunRepository:
-    return SetupFlashRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupFlashRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_final_validation_repository(settings: Settings) -> SetupFinalValidationRepository:
-    return SetupFinalValidationRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupFinalValidationRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 @router.post("/api/setup/ssh/preflight")
@@ -123,7 +158,10 @@ async def setup_can_plan(payload: SetupCanRequest) -> SetupCanPlanResponse:
 
 
 @router.post("/api/setup/can/apply")
-async def setup_can_apply(payload: SetupCanApplyRequest) -> SetupCanApplyResponse:
+async def setup_can_apply(
+    payload: SetupCanApplyRequest,
+    _: CurrentUser | None = Depends(require_setup_step_up),
+) -> SetupCanApplyResponse:
     settings = get_settings()
     repository = get_setup_can_repository(settings)
     response = await apply_setup_can(payload)
@@ -151,7 +189,10 @@ async def setup_firmware_plan(payload: SetupFirmwareRequest) -> SetupFirmwarePla
 
 
 @router.post("/api/setup/firmware/build")
-async def setup_firmware_build(payload: SetupFirmwareBuildRequest) -> SetupFirmwareBuildResponse:
+async def setup_firmware_build(
+    payload: SetupFirmwareBuildRequest,
+    _: CurrentUser | None = Depends(require_setup_step_up),
+) -> SetupFirmwareBuildResponse:
     settings = get_settings()
     repository = get_setup_firmware_repository(settings)
     try:
@@ -189,7 +230,10 @@ async def setup_flash_plan(payload: SetupFlashRequest) -> SetupFlashPlanResponse
 
 
 @router.post("/api/setup/flash/execute")
-async def setup_flash_execute(payload: SetupFlashExecuteRequest) -> SetupFlashExecuteResponse:
+async def setup_flash_execute(
+    payload: SetupFlashExecuteRequest,
+    _: CurrentUser | None = Depends(require_setup_step_up),
+) -> SetupFlashExecuteResponse:
     settings = get_settings()
     repository = get_setup_flash_repository(settings)
     response = await execute_setup_flash(payload)

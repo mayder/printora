@@ -1,4 +1,5 @@
 import { Badge } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type {
   BoardPreset,
   FirmwareBoardRecord,
@@ -109,6 +110,8 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
   } = props;
 
   const inventoryItems = firmwareHardwareInventory?.items ?? [];
+  const inventoryUnavailable = firmwareHardwareInventory?.source === "agent_unavailable";
+  const inventoryErrorMessage = firmwareInventoryError ?? (inventoryUnavailable ? firmwareHardwareInventory?.summary ?? null : null) ?? error;
   const registeredItems = inventoryItems.filter((item) => item.status === "registered");
   const detectedItems = inventoryItems.filter((item) => item.status === "detected");
   const firmwareTargets = inventoryItems.length ? inventoryItems : firmwareBoards.map(boardToHardwareItem);
@@ -185,12 +188,12 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           </div>
         ) : null}
 
-        {firmwareInventoryError || error ? (
+        {inventoryErrorMessage ? (
           <div className="firmware-state-banner warning">
             <AlertTriangle size={16} />
             <div>
               <strong>Falha na leitura de firmware</strong>
-              <span>{formatFirmwareError(firmwareInventoryError ?? error)}</span>
+              <span>{formatFirmwareError(inventoryErrorMessage)}</span>
             </div>
           </div>
         ) : null}
@@ -232,7 +235,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
                   </button>
                 </div>
                 <small className="muted">
-                  Último build: {latestBuild ? `${latestBuild.status} · ${latestBuild.created_at}` : "nenhum"}.
+                  Último build: {latestBuild ? `${latestBuild.status} · ${formatDateTime(latestBuild.created_at)}` : "nenhum"}.
                   {latestBuild?.binary_output_path ? ` Artefato: ${latestBuild.binary_output_path}` : ""}
                 </small>
               </>
@@ -271,7 +274,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
             <div className="firmware-card-heading">
               <div>
                 <strong>Build local controlado</strong>
-                <span>O backend mantém o bloqueio por modo e exige confirmação textual antes de executar.</span>
+                <span>A proteção por modo e a confirmação textual continuam obrigatórias antes da execução.</span>
               </div>
               <span className="status-pill warning">sem flash</span>
             </div>
@@ -555,7 +558,7 @@ function ConfigPreviewCard({ preview }: { preview: FirmwareConfigPreview | null 
       {preview ? (
         <pre className="firmware-config-preview">{preview.content}</pre>
       ) : (
-        <small className="muted">A geração é feita pelo backend e não salva arquivo no Klipper.</small>
+        <small className="muted">A prévia é gerada sem salvar arquivos no Klipper.</small>
       )}
     </div>
   );
@@ -638,9 +641,16 @@ function formatFirmwareError(value: string | null) {
   if (!value) {
     return "Não foi possível ler o inventário de firmware desta impressora.";
   }
+  if (/<html[\s>]/i.test(value) || /cloudflare/i.test(value) || /bad gateway/i.test(value)) {
+    return "O Printora não conseguiu consultar o firmware agora. Tente novamente em alguns segundos; se repetir, verifique a conexão do agente.";
+  }
   try {
     const parsed = JSON.parse(value) as { detail?: string };
-    return parsed.detail ?? value;
+    const detail = parsed.detail ?? value;
+    if (/<html[\s>]/i.test(detail) || /cloudflare/i.test(detail) || /bad gateway/i.test(detail)) {
+      return "O Printora não conseguiu consultar o firmware agora. Tente novamente em alguns segundos; se repetir, verifique a conexão do agente.";
+    }
+    return detail;
   } catch {
     return value;
   }

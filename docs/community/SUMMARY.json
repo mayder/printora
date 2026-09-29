@@ -1,0 +1,14 @@
+{
+  "domains": 55,
+  "capabilities": 440,
+  "atomic_items": 3080,
+  "screen_families": 440,
+  "screen_states": 1320,
+  "priorities": {
+    "P0": 448,
+    "P1": 616,
+    "P2": 1344,
+    "P3": 504,
+    "P4": 168
+  }
+}

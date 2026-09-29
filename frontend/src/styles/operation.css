@@ -52,8 +52,13 @@
 
 .operation-state span {
   display: block;
-  margin-top: 3px;
   color: var(--muted);
+  line-height: 1.45;
+}
+
+.operation-state div {
+  display: grid;
+  gap: 6px;
 }
 
 .wide-operation-panel {
@@ -554,17 +559,71 @@
   color: var(--muted);
 }
 
-.operation-led-control {
-  display: grid;
-  gap: 10px;
+.operation-light-control {
+  border-left: 3px solid var(--accent);
+}
+
+.operation-led-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-3);
   padding: 10px;
 }
 
+.operation-led-readout > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.operation-led-readout strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operation-led-readout > span {
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.operation-led-swatch {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 1px solid rgb(255 255 255 / 0.75);
+  border-radius: 999px;
+}
+
 .operation-misc-wide {
   grid-column: 1 / -1;
+}
+
+.operation-misc-empty {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.operation-misc-empty.warning {
+  border-color: rgb(245 158 11 / 0.45);
+  color: var(--text);
+}
+
+.operation-misc-empty small {
+  color: var(--muted);
 }
 
 .operation-action-group {
@@ -853,6 +912,7 @@
 
 @media (max-width: 920px) {
   .operation-actions-summary,
+  .operation-capabilities,
   .operation-console-grid,
   .operation-misc-grid,
   .operation-position-grid,
@@ -866,6 +926,14 @@
   .operation-execution-gate,
   .temperature-history-row {
     grid-template-columns: 1fr;
+  }
+
+  .operation-command-center,
+  .operation-capability-summary-card {
+    grid-column: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .operation-jog-row {

@@ -1,0 +1,323 @@
+import base64
+import subprocess
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from app.agent_support import _ED25519_VERIFY_PYTHON, _parse_dt
+from app.agent_updates import load_agent_update_manifest
+from app.config import get_settings
+from app.database import connect_database, initialize_database
+from app.main import app
+
+
+def test_agent_support_overview_is_scoped_and_reports_alerts(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-support@example.com")
+            other_token = _register(client, "other-support@example.com")
+            printer = _create_printer(client, owner_token)
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-support-001", version="0.0.1")
+
+            heartbeat = client.post(
+                "/api/agent/heartbeat",
+                json={"agent_version": "0.0.1", "platform": "linux/arm64", "capabilities": {"protocol_v": 99}},
+                headers=_auth(credential),
+            )
+            assert heartbeat.status_code == 200
+
+            blocked = client.get(f"/api/printers/{printer['id']}/agent/support", headers=_auth(other_token))
+            assert blocked.status_code == 404
+
+            overview = client.get(f"/api/printers/{printer['id']}/agent/support", headers=_auth(owner_token))
+            assert overview.status_code == 200
+            payload = overview.json()
+            assert payload["safe_mode"] == "agent_support_sanitized"
+            assert payload["agents"][0]["state"] == "outdated"
+            assert payload["agents"][0]["agent"]["credential_prefix"] == "[redacted]"
+            codes = {alert["code"] for alert in payload["alerts"]}
+            assert "agent_outdated" in codes
+            assert "protocol_incompatible" in codes
+    finally:
+        get_settings.cache_clear()
+
+
+def test_agent_support_doctor_and_bundle_are_sanitized(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-support-bundle@example.com")
+            printer = _create_printer(client, owner_token)
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-support-002")
+
+            doctor = client.post(f"/api/printers/{printer['id']}/agent/support/doctor", headers=_auth(owner_token))
+            assert doctor.status_code == 200
+            doctor_job = doctor.json()
+            assert doctor_job["job_type"] == "remote_doctor"
+
+            assert client.post(f"/api/agent/jobs/{doctor_job['id']}/ack", headers=_auth(credential)).status_code == 200
+            result = client.post(
+                f"/api/agent/jobs/{doctor_job['id']}/result",
+                json={
+                    "correlation_id": doctor_job["correlation_id"],
+                    "result": {
+                        "safe_mode": "support_diagnostics",
+                        "checks": [{"name": "api", "status": "ok", "detail": "ptr_agent_secret"}],
+                        "api_token": "ptr_agent_secret",
+                    },
+                },
+                headers=_auth(credential),
+            )
+            assert result.status_code == 200
+
+            with connect_database(database_path) as connection:
+                connection.execute(
+                    """
+                    INSERT INTO agent_jobs (printer_id, agent_id, correlation_id, job_type, payload_json, status, result_json, error_message)
+                    VALUES (?, (SELECT id FROM printer_agents WHERE stable_id = 'agent-support-002'), 'support-secret-job', 'support_secret', ?, 'failed', ?, ?)
+                    """,
+                    (
+                        printer["id"],
+                        '{"credential":"ptr_agent_secret","nested":{"token":"ptr_pair_secret"}}',
+                        '{"private_key":"secret-key"}',
+                        "falha ptr_agent_secret",
+                    ),
+                )
+
+            bundle = client.get(f"/api/printers/{printer['id']}/agent/support/bundle", headers=_auth(owner_token))
+            assert bundle.status_code == 200
+            text = bundle.text
+            assert "ptr_agent_secret" not in text
+            assert "ptr_pair_secret" not in text
+            assert "ptr_agent_" not in text
+            assert "ptr_pair_" not in text
+            assert "secret-key" not in text
+            assert "[redacted]" in text
+    finally:
+        get_settings.cache_clear()
+
+
+def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-agent-update-job@example.com")
+            other_token = _register(client, "other-agent-update-job@example.com")
+            printer = _create_printer(client, owner_token)
+            _credential = _pair_agent(client, owner_token, printer["id"], "agent-update-job-001")
+
+            agents = client.get(f"/api/printers/{printer['id']}/pairing", headers=_auth(owner_token)).json()["agents"]
+            agent_id = agents[0]["id"]
+
+            blocked = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(other_token))
+            assert blocked.status_code == 404
+
+            created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
+            assert created.status_code == 200
+            assert created.json()["mode"] == "remote_job"
+            assert created.json()["status"] == "queued"
+            assert created.json()["websocket_delivered"] is False
+            assert "sem SSH" in created.json()["detail"]
+            assert created.json()["job"]["job_type"] == "remote_host_script"
+            assert created.json()["job"]["payload"]["safe_mode"] == "agent_update_bootstrap"
+            assert "sha256sum -c" in created.json()["job"]["payload"]["script"]
+            assert "hashlib.sha512" in created.json()["job"]["payload"]["script"]
+            assert "openssl pkeyutl -verify" not in created.json()["job"]["payload"]["script"]
+            assert "print_stats.state=" in created.json()["job"]["payload"]["script"]
+
+            with connect_database(tmp_path / "printora.db") as connection:
+                connection.execute("UPDATE printer_agents SET agent_version = '0.1.17' WHERE id = ?", (agent_id,))
+            current_created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
+            assert current_created.status_code == 200
+            assert current_created.json()["mode"] == "remote_job"
+            assert current_created.json()["status"] == "queued"
+            assert current_created.json()["websocket_delivered"] is False
+            assert current_created.json()["job"]["job_type"] == "remote_agent_update_check"
+            assert current_created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
+            assert current_created.json()["job"]["payload"]["target_version"] == "0.1.36"
+
+            candidate_created = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=candidate",
+                headers=_auth(owner_token),
+            )
+            assert candidate_created.status_code == 200
+            candidate_job = candidate_created.json()["job"]
+            assert candidate_job["job_type"] == "remote_agent_update_check"
+            assert candidate_job["payload"]["target_version"] == "0.1.38"
+            assert candidate_job["payload"]["update_channel"] == "candidate"
+
+            premature_rollback = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=rollback",
+                headers=_auth(owner_token),
+            )
+            assert premature_rollback.status_code == 400
+
+            with connect_database(tmp_path / "printora.db") as connection:
+                connection.execute("UPDATE printer_agents SET agent_version = '0.1.36' WHERE id = ?", (agent_id,))
+            rollback_created = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=rollback",
+                headers=_auth(owner_token),
+            )
+            assert rollback_created.status_code == 200
+            rollback_job = rollback_created.json()["job"]
+            assert rollback_job["job_type"] == "remote_host_script"
+            assert rollback_job["payload"]["target_version"] == "0.1.35"
+            assert rollback_job["payload"]["update_channel"] == "rollback"
+            assert "/api/agent/update/releases/0.1.35/linux-arm64" in rollback_job["payload"]["script"]
+            assert "systemctl restart printora-agent" in rollback_job["payload"]["script"]
+            assert "systemctl restart klipper" not in rollback_job["payload"]["script"]
+            assert "systemctl restart moonraker" not in rollback_job["payload"]["script"]
+
+            invalid_channel = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=invalid",
+                headers=_auth(owner_token),
+            )
+            assert invalid_channel.status_code == 422
+    finally:
+        get_settings.cache_clear()
+
+
+def test_bootstrap_ed25519_verifier_is_portable_and_rejects_tampering(tmp_path: Path) -> None:
+    manifest = load_agent_update_manifest()
+    release = next(item for item in manifest.releases if item.version == "0.1.36")
+    digest_path = tmp_path / "digest.txt"
+    signature_path = tmp_path / "signature.bin"
+    digest_path.write_text(release.sha256, encoding="ascii")
+    signature_path.write_bytes(base64.b64decode(release.signature))
+
+    verified = subprocess.run(
+        ["python3", "-c", _ED25519_VERIFY_PYTHON, str(digest_path), str(signature_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert verified.returncode == 0, verified.stderr
+
+    digest_path.write_text("0" * 64, encoding="ascii")
+    rejected = subprocess.run(
+        ["python3", "-c", _ED25519_VERIFY_PYTHON, str(digest_path), str(signature_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert rejected.returncode != 0
+    assert "assinatura Ed25519 não confere" in rejected.stderr
+
+
+def test_agent_support_parses_postgresql_and_sqlite_timestamps() -> None:
+    postgres = _parse_dt("2026-07-23 10:36:11.83607-03")
+    assert postgres is not None
+    assert postgres.isoformat() == "2026-07-23T13:36:11.836070+00:00"
+
+    sqlite = _parse_dt("2026-07-23 13:36:11")
+    assert sqlite is not None
+    assert sqlite.isoformat() == "2026-07-23T13:36:11+00:00"
+
+    utc = _parse_dt("2026-07-23T13:36:11Z")
+    assert utc is not None
+    assert utc.isoformat() == "2026-07-23T13:36:11+00:00"
+
+
+def test_agent_update_job_is_reconciled_after_restart_heartbeat(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-agent-update-reconcile@example.com")
+            printer = _create_printer(client, owner_token)
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-update-reconcile-001", version="0.1.17")
+
+            agents = client.get(f"/api/printers/{printer['id']}/pairing", headers=_auth(owner_token)).json()["agents"]
+            agent_id = agents[0]["id"]
+            created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
+            assert created.status_code == 200
+            job_id = created.json()["job"]["id"]
+
+            ack = client.post(f"/api/agent/jobs/{job_id}/ack", headers=_auth(credential))
+            assert ack.status_code == 200
+            heartbeat = client.post(
+                "/api/agent/heartbeat",
+                json={"agent_version": "0.1.36", "platform": "linux/arm64", "capabilities": {"websocket": True}},
+                headers=_auth(credential),
+            )
+            assert heartbeat.status_code == 200
+
+            with connect_database(database_path) as connection:
+                row = connection.execute("SELECT status, result_json FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+            assert row["status"] == "succeeded"
+            assert "update confirmado pelo heartbeat" in row["result_json"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_removed_agent_is_not_reported_in_support(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-support-remove@example.com")
+            printer = _create_printer(client, owner_token)
+            _pair_agent(client, owner_token, printer["id"], "agent-support-remove")
+            with connect_database(database_path) as connection:
+                connection.execute(
+                    """
+                    UPDATE printer_agents
+                    SET status = 'removed', revoked_at = CURRENT_TIMESTAMP, removed_at = CURRENT_TIMESTAMP
+                    WHERE stable_id = 'agent-support-remove'
+                    """
+                )
+
+            overview = client.get(f"/api/printers/{printer['id']}/agent/support", headers=_auth(owner_token))
+            assert overview.status_code == 200
+            payload = overview.json()
+            assert payload["agents"] == []
+            assert {alert["code"] for alert in payload["alerts"]} == {"agent_missing"}
+    finally:
+        get_settings.cache_clear()
+
+
+def _register(client: TestClient, email: str) -> str:
+    response = client.post("/api/auth/register", json={"email": email, "password": "correct-horse"})
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def _create_printer(client: TestClient, token: str) -> dict:
+    response = client.post(
+        "/api/printers",
+        json={"name": "Voron Support", "moonraker_url": "http://voron.local:7125", "host_audit_mode": "disabled"},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def _pair_agent(client: TestClient, token: str, printer_id: int, stable_id: str, version: str = "0.1.0") -> str:
+    pairing = client.post(
+        f"/api/printers/{printer_id}/pairing/tokens",
+        json={"ttl_minutes": 15},
+        headers=_auth(token),
+    ).json()
+    exchanged = client.post(
+        "/api/agent/pairing/exchange",
+        json={"pairing_token": pairing["token"], "stable_id": stable_id, "agent_version": version},
+    )
+    assert exchanged.status_code == 200
+    return exchanged.json()["credential"]
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}

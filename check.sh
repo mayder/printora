@@ -17,6 +17,11 @@ run_model_validations() {
     scripts/validate-no-secrets.sh \
     scripts/validate-file-size.sh \
     scripts/validate-no-runtime-pkg-names.sh \
+    scripts/validate-cloud-postgresql-only.sh \
+    scripts/validate-cloud-object-search-only.sh \
+    scripts/validate-final-architecture.sh \
+    scripts/validate-durable-execution.sh \
+    scripts/validate-finance-safety.sh \
     scripts/validate-fixtures.sh \
     scripts/validate-layering.sh \
     scripts/validate-stack.sh; do
@@ -40,6 +45,8 @@ required_files=(
   ".gitignore"
   "backend/pyproject.toml"
   "backend/app/main.py"
+  "agent/go.mod"
+  "agent/cmd/printora-agent/main.go"
   "frontend/package.json"
   "frontend/src/main.tsx"
 )
@@ -51,20 +58,61 @@ for file in "${required_files[@]}"; do
   fi
 done
 
+log "validando Node suportado"
+node frontend/scripts/validate-node-version.mjs
+node frontend/tests/nodeVersionGate.test.mjs
+
 run_model_validations
+
+coverage_ran=0
+if [[ "${SKIP_QUALITY_COVERAGE:-0}" != "1" ]] && python3 - <<'PY'
+import tomllib
+
+with open("PATHS.toml", "rb") as stream:
+    enabled = bool(tomllib.load(stream).get("quality", {}).get("coverage", {}).get("enabled"))
+raise SystemExit(0 if enabled else 1)
+PY
+then
+  coverage_ran=1
+fi
+
+log "validando dependências dos pacotes comunitários"
+python3 scripts/validate-demand-package-dependencies.py
+python3 scripts/test-demand-package-validator.py
+
+log "validando inventário modular"
+python3 scripts/audit_module_boundaries.py --check >/dev/null
+
+log "validando contratos públicos versionados"
+if command -v uv >/dev/null 2>&1; then
+  (cd backend && uv run python ../scripts/export_api_contracts.py --check >/dev/null)
+elif [[ -x backend/.venv/bin/python ]]; then
+  backend/.venv/bin/python scripts/export_api_contracts.py --check >/dev/null
+else
+  python3 scripts/export_api_contracts.py --check >/dev/null
+fi
 
 log "python compileall"
 python3 -m compileall -q backend/app backend/tests
 
 if [[ "${RUN_PYTHON_TESTS:-0}" == "1" ]]; then
-  log "pytest backend"
-  if command -v uv >/dev/null 2>&1; then
-    (cd backend && uv run pytest -q)
+  if [[ "$coverage_ran" == "1" ]]; then
+    log "pytest backend já executado pelo gate de cobertura"
   else
-    (cd backend && python3 -m pytest -q)
+    log "pytest backend"
+    if command -v uv >/dev/null 2>&1; then
+      (cd backend && uv run --extra dev pytest -q)
+    else
+      (cd backend && python3 -m pytest -q)
+    fi
   fi
 else
   log "pytest backend pulado; use RUN_PYTHON_TESTS=1 ./check.sh"
+fi
+
+if [[ -d agent ]]; then
+  log "go test agent"
+  (cd agent && go test ./...)
 fi
 
 log "validando package.json"
@@ -77,6 +125,13 @@ if [[ "${RUN_FRONTEND_CHECKS:-0}" == "1" ]]; then
     if node -e "const s=require('./frontend/package.json').scripts||{}; process.exit(s['test:releases']?0:1)"; then
       (cd frontend && npm run test:releases)
     fi
+    if node -e "const s=require('./frontend/package.json').scripts||{}; process.exit(s['test:gcode-preview']?0:1)"; then
+      (cd frontend && npm run test:gcode-preview)
+    fi
+    if node -e "const s=require('./frontend/package.json').scripts||{}; process.exit(s['test:sequential-poll']?0:1)"; then
+      (cd frontend && npm run test:sequential-poll)
+    fi
+    (cd frontend && npm run test:bundle-budget)
   else
     fail "frontend/node_modules ausente para RUN_FRONTEND_CHECKS=1"
   fi

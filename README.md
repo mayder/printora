@@ -97,6 +97,12 @@ Se um update local ficar travado em `em execução`, use a ação `Atualizar sta
 - [Escopo do projeto](ESCOPO.md)
 - [Backlog de funcionalidades](DEMANDAS.md)
 - [Recursos e endpoints](docs/FEATURES.md)
+- [Plano diretor da comunidade](docs/community/MASTER_PLAN.md)
+- [Benchmark de redes e impressão 3D](docs/community/PLATFORM_BENCHMARK.md)
+- [Inventário completo de melhorias](docs/community/COMMUNITY_BACKLOG.md)
+- [Catálogo futuro de telas](docs/community/COMMUNITY_SCREENS.md)
+- [Evolução arquitetural em quatro etapas](docs/architecture/EVOLUCAO_ARQUITETURAL.md)
+- [Revisão e matriz de cobertura arquitetural](docs/architecture/REVISAO_PACOTES.md)
 - [Instalação por plataforma](docs/INSTALL_MULTIPLATFORM.md)
 
 ## Licença

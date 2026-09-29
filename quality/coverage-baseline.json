@@ -1,0 +1,20 @@
+{
+  "python": {
+    "global": 79.25489646145935,
+    "critical": 84.58563535911601,
+    "minimum": 79.0,
+    "critical_minimum": 84.0
+  },
+  "go": {
+    "global": 53.3,
+    "critical": 54.8,
+    "minimum": 53.0,
+    "critical_minimum": 54.0
+  },
+  "frontend": {
+    "global": 1.782178217821782,
+    "critical": 91.36690647482014,
+    "minimum": 1.7,
+    "critical_minimum": 89.0
+  }
+}

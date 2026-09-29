@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda restore isolado periódico do Printora Cloud
+
+[Timer]
+OnCalendar=Sun *-*-* 04:15:00 UTC
+Persistent=true
+RandomizedDelaySec=900
+Unit=printora-cloud-restore-test.service
+
+[Install]
+WantedBy=timers.target

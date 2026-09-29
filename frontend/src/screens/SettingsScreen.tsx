@@ -1,664 +1,672 @@
-import { useState } from "react";
-import { Badge, Metric } from "../components/common";
+import React from "react";
+import { Metric } from "../components/common";
+import { printerApi } from "../services/printerApi";
+import { slicingApi, type PrintDelivery, type PrintJobFeedback, type PrintJobHistory, type PrintPreflight, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
+import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
+import type { PrinterRecord } from "../types/printers";
 
 type SettingsScreenProps = ScreenPropsFor<
-  | "Activity"
-  | "AlertTriangle"
-  | "ClipboardCheck"
+  | "authUser"
   | "FileText"
   | "History"
-  | "HelpCircle"
   | "RefreshCw"
   | "Settings"
-  | "ShieldAlert"
-  | "ShieldCheck"
-  | "Undo2"
-  | "X"
-  | "audit"
-  | "canBitrate"
-  | "canBusState"
-  | "canComparison"
-  | "canInterfaceName"
-  | "canNotes"
-  | "canRawOutput"
-  | "canRecords"
-  | "canRollbackSelfUpdateRun"
-  | "canRxError"
-  | "canSummary"
-  | "canTxError"
-  | "canTxRetries"
-  | "compareLatestCanRecords"
-  | "createCanRecord"
   | "displayedReleaseRows"
-  | "error"
-  | "formatCanAlert"
-  | "formatClassification"
-  | "formatMetricLabel"
-  | "formatOptionalInt"
   | "formatReleaseSourceStatus"
   | "formatReleaseUpdateStatus"
   | "formatSelfUpdateStatus"
-  | "formatUnknown"
-  | "hostAudit"
-  | "installDiagnostics"
-  | "loadInstallDiagnostics"
-  | "isSelfUpdateEnvironmentSupported"
   | "loadSelfUpdateHistory"
   | "loadSystemReleases"
-  | "loading"
-  | "parseCanRawOutput"
   | "releaseError"
   | "releaseLoading"
-  | "reconcileSelfUpdateHistory"
   | "releasePanelClass"
   | "releaseStatusPillClass"
-  | "selectedPrinterId"
-  | "selfUpdateConnectionLost"
   | "selfUpdateHistory"
-  | "selfUpdateMessage"
-  | "selfUpdateReconciling"
   | "selfUpdateRunClass"
-  | "setCanBitrate"
-  | "setCanBusState"
-  | "setCanInterfaceName"
-  | "setCanNotes"
-  | "setCanRawOutput"
-  | "setCanRxError"
-  | "setCanTxError"
-  | "setCanTxRetries"
-  | "setSelfUpdateConfirmation"
-  | "setSelfUpdateModalOpen"
-  | "setSelfUpdatePlan"
-  | "setSelfUpdateRollbackConfirmation"
-  | "startSelfUpdateFlow"
-  | "status"
   | "systemReleases"
 >;
 
 export function SettingsScreen(props: SettingsScreenProps) {
   const {
-    Activity,
-    AlertTriangle,
-    ClipboardCheck,
+    authUser,
     FileText,
     History,
-    HelpCircle,
     RefreshCw,
     Settings,
-    ShieldAlert,
-    ShieldCheck,
-    Undo2,
-    X,
-    audit,
-    canBitrate,
-    canBusState,
-    canComparison,
-    canInterfaceName,
-    canNotes,
-    canRawOutput,
-    canRecords,
-    canRollbackSelfUpdateRun,
-    canRxError,
-    canSummary,
-    canTxError,
-    canTxRetries,
-    compareLatestCanRecords,
-    createCanRecord,
     displayedReleaseRows,
-    error,
-    formatCanAlert,
-    formatClassification,
-    formatMetricLabel,
-    formatOptionalInt,
     formatReleaseSourceStatus,
     formatReleaseUpdateStatus,
     formatSelfUpdateStatus,
-    formatUnknown,
-    hostAudit,
-    installDiagnostics,
-    loadInstallDiagnostics,
-    isSelfUpdateEnvironmentSupported,
     loadSelfUpdateHistory,
     loadSystemReleases,
-    loading,
-    parseCanRawOutput,
     releaseError,
     releaseLoading,
-    reconcileSelfUpdateHistory,
     releasePanelClass,
     releaseStatusPillClass,
-    selectedPrinterId,
-    selfUpdateConnectionLost,
     selfUpdateHistory,
-    selfUpdateMessage,
-    selfUpdateReconciling,
     selfUpdateRunClass,
-    setCanBitrate,
-    setCanBusState,
-    setCanInterfaceName,
-    setCanNotes,
-    setCanRawOutput,
-    setCanRxError,
-    setCanTxError,
-    setCanTxRetries,
-    setSelfUpdateConfirmation,
-    setSelfUpdateModalOpen,
-    setSelfUpdatePlan,
-    setSelfUpdateRollbackConfirmation,
-    startSelfUpdateFlow,
-    status,
     systemReleases,
   } = props;
-  const [settingsHelpTopic, setSettingsHelpTopic] = useState<"can" | "host" | null>(null);
-  const [installDiagnosticLoading, setInstallDiagnosticLoading] = useState(false);
-  const [installDiagnosticCopyState, setInstallDiagnosticCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const isPlatformAdmin = authUser?.platform_admin === true;
+  const [slicingEngine, setSlicingEngine] = React.useState<SlicingEngineInfo | null>(null);
+  const [slicingLoading, setSlicingLoading] = React.useState(false);
+  const [slicingError, setSlicingError] = React.useState<string | null>(null);
+  const [slicingJobs, setSlicingJobs] = React.useState<SlicingJob[]>([]);
+  const [printPreflights, setPrintPreflights] = React.useState<PrintPreflight[]>([]);
+  const [printDeliveries, setPrintDeliveries] = React.useState<PrintDelivery[]>([]);
+  const [printHistory, setPrintHistory] = React.useState<PrintJobHistory[]>([]);
+  const [deliveryConfirmations, setDeliveryConfirmations] = React.useState<Record<number, string>>({});
+  const [feedbackDrafts, setFeedbackDrafts] = React.useState<Record<number, { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note: string; photo_url: string }>>({});
+  const [slicingPrinters, setSlicingPrinters] = React.useState<PrinterRecord[]>([]);
+  const [slicingJobBusy, setSlicingJobBusy] = React.useState(false);
+  const [slicingDraft, setSlicingDraft] = React.useState({
+    printerId: "",
+    modelReference: "library://modelo.stl",
+    qualityReference: "0.20 qualidade",
+    x: "",
+    y: "",
+    z: "",
+  });
 
-  const helpTitle = settingsHelpTopic === "can" ? "Registro técnico CAN" : "Diagnóstico avançado do host";
+  React.useEffect(() => {
+    void loadSlicingPipeline();
+  }, []);
 
-  async function refreshInstallDiagnostics(event: React.MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setInstallDiagnosticLoading(true);
+  async function loadSlicingEngine() {
+    setSlicingLoading(true);
+    setSlicingError(null);
     try {
-      await loadInstallDiagnostics();
-    } catch {
-      return;
+      setSlicingEngine(await slicingApi.engine());
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao verificar engine de fatiamento");
     } finally {
-      setInstallDiagnosticLoading(false);
+      setSlicingLoading(false);
     }
   }
 
-  async function copyInstallDiagnostics(event: React.MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setInstallDiagnosticLoading(true);
-    let copyText = installDiagnostics?.copy_text;
+  async function loadSlicingPipeline() {
     try {
-      if (!copyText) {
-        const diagnostics = await loadInstallDiagnostics();
-        copyText = diagnostics.copy_text;
-      }
-    } catch {
-      setInstallDiagnosticCopyState("failed");
-      window.setTimeout(() => setInstallDiagnosticCopyState("idle"), 1800);
+      const [printersResponse, jobs, preflights, deliveries, history] = await Promise.all([printerApi.list(), slicingApi.jobs(), slicingApi.preflights(), slicingApi.deliveries(), slicingApi.history()]);
+      const printersPayload = await printersResponse.json() as PrinterRecord[] | { printers?: PrinterRecord[] };
+      const printers = Array.isArray(printersPayload) ? printersPayload : printersPayload.printers ?? [];
+      setSlicingPrinters(printers.filter((printer) => printer.is_active));
+      setSlicingJobs(jobs);
+      setPrintPreflights(preflights);
+      setPrintDeliveries(deliveries);
+      setPrintHistory(history);
+      setSlicingDraft((current) => current.printerId || printers.length === 0 ? current : { ...current, printerId: String(printers[0].id) });
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao carregar pipeline de fatiamento");
+    }
+  }
+
+  async function createSlicingJob() {
+    const printerId = Number(slicingDraft.printerId);
+    if (!printerId) {
+      setSlicingError("Selecione uma impressora para criar o job.");
       return;
+    }
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const job = await slicingApi.createJob({
+        printer_id: printerId,
+        engine: "orcaslicer",
+        model_reference: slicingDraft.modelReference,
+        model_dimensions: {
+          x_mm: numberOrNull(slicingDraft.x),
+          y_mm: numberOrNull(slicingDraft.y),
+          z_mm: numberOrNull(slicingDraft.z),
+        },
+        quality_reference: slicingDraft.qualityReference,
+      });
+      setSlicingJobs((current) => [job, ...current.filter((item) => item.id !== job.id)].slice(0, 20));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao criar job de fatiamento");
     } finally {
-      setInstallDiagnosticLoading(false);
+      setSlicingJobBusy(false);
     }
-    if (!copyText) {
-      setInstallDiagnosticCopyState("failed");
-      window.setTimeout(() => setInstallDiagnosticCopyState("idle"), 1800);
-      return;
+  }
+
+  async function runSlicingJob(jobId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const job = await slicingApi.runJob(jobId);
+      setSlicingJobs((current) => current.map((item) => item.id === job.id ? job : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao executar job de fatiamento");
+    } finally {
+      setSlicingJobBusy(false);
     }
-    const copied = await copyTextToClipboard(copyText);
-    setInstallDiagnosticCopyState(copied ? "copied" : "failed");
-    window.setTimeout(() => setInstallDiagnosticCopyState("idle"), 1800);
+  }
+
+  async function cancelSlicingJob(jobId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const job = await slicingApi.cancelJob(jobId);
+      setSlicingJobs((current) => current.map((item) => item.id === job.id ? job : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao cancelar job de fatiamento");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function createPrintPreflight(jobId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const preflight = await slicingApi.createPreflight(jobId);
+      setPrintPreflights((current) => [preflight, ...current.filter((item) => item.id !== preflight.id)].slice(0, 30));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao criar preflight de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function refreshPrintPreflight(preflightId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const preflight = await slicingApi.refreshPreflight(preflightId);
+      setPrintPreflights((current) => current.map((item) => item.id === preflight.id ? preflight : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao atualizar preflight de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function createPrintDelivery(preflight: PrintPreflight, mode: PrintDelivery["mode"]) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const confirmation = mode === "save_and_print" ? deliveryConfirmations[preflight.id] ?? "" : "";
+      const delivery = await slicingApi.createDelivery({
+        preflight_id: preflight.id,
+        mode,
+        confirmation_phrase: confirmation,
+      });
+      setPrintDeliveries((current) => [delivery, ...current.filter((item) => item.id !== delivery.id)].slice(0, 30));
+      setPrintHistory(await slicingApi.history());
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao enviar G-code");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function rollbackPrintDelivery(deliveryId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const delivery = await slicingApi.rollbackDelivery(deliveryId);
+      setPrintDeliveries((current) => current.map((item) => item.id === delivery.id ? delivery : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao remover arquivo remoto");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function recordPrintResult(history: PrintJobHistory, status: PrintJobHistory["status"]) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const updated = await slicingApi.recordHistoryEvent(history.id, { status, result: { status } });
+      setPrintHistory((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao atualizar resultado de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function submitPrintFeedback(history: PrintJobHistory) {
+    const draft = feedbackDrafts[history.id] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const updated = await slicingApi.addHistoryFeedback(history.id, {
+        outcome: draft.outcome,
+        visibility: draft.visibility,
+        note: draft.note,
+        photo_url: draft.photo_url || null,
+      });
+      setPrintHistory((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+      setFeedbackDrafts((current) => ({ ...current, [history.id]: { outcome: "worked", visibility: "private", note: "", photo_url: "" } }));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao registrar feedback de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
   }
 
   return (
     <>
-        {settingsHelpTopic ? (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Ajuda: ${helpTitle}`}>
-            <div className="modal-card settings-help-modal-card">
-              <div className="modal-header">
-                <div>
-                  <h2>{helpTitle}</h2>
-                  <p>{settingsHelpTopic === "can" ? "Histórico técnico da comunicação CAN da impressora." : "Auditoria técnica do computador onde o Printora roda."}</p>
-                </div>
-                <button type="button" className="icon-button" onClick={() => setSettingsHelpTopic(null)} aria-label="Fechar ajuda">
-                  <X size={18} />
-                </button>
-              </div>
-              {settingsHelpTopic === "can" ? (
-                <div className="settings-help-content">
-                  <p>Use para guardar uma leitura técnica da interface CAN e comparar se erros aumentaram depois de manutenção, update, troca de cabo ou troca de placa.</p>
-                  <p>O fluxo esperado é rodar <code>ip -details -statistics link show can0</code> no host, colar a saída, extrair a leitura e registrar.</p>
-                  <p>Indicadores como <code>rx</code>, <code>tx</code>, <code>retries</code>, estado do barramento e bitrate ajudam a separar falha de comunicação CAN de problema mecânico ou de configuração.</p>
-                </div>
-              ) : (
-                <div className="settings-help-content">
-                  <p>Use para verificar o ambiente Linux/Raspberry/host do Printora quando houver suspeita de problema estrutural fora da impressão.</p>
-                  <p>A auditoria olha sinais como systemd, CAN, symlinks, caminhos legados e repositórios locais. Ela não corrige nada sozinha.</p>
-                  <p>Se aparecerem itens em monitorar ou corrigir, investigue o detalhe antes de update, rollback ou manutenção longa.</p>
-                </div>
-              )}
-              <div className="modal-footer">
-                <button type="button" className="secondary-button" onClick={() => setSettingsHelpTopic(null)}>
-                  Fechar
-                </button>
-              </div>
-            </div>
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Administração</h2>
+            <p>Configurações globais do Printora Cloud. Releases da plataforma não fazem parte da operação do cliente.</p>
+          </div>
+          <Settings size={20} />
+        </div>
+        <div className="release-summary-grid">
+          <Metric label="Plataforma" value="Printora Cloud" />
+          <Metric label="Impressoras" value="por registro" />
+          <Metric label="Agentes" value="com releases próprias" />
+          <Metric label="Atualizações" value="por agente" />
+        </div>
+      </article>
+
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Escopo global</h2>
+            <p>Itens técnicos específicos saíram desta tela para evitar misturar plataforma, impressora e host do agente.</p>
+          </div>
+          <Settings size={20} />
+        </div>
+        <div className="release-summary-grid">
+          <Metric label="Plataforma" value="Printora Cloud" />
+          <Metric label="Operação" value="por impressora" />
+          <Metric label="Diagnóstico host" value="por agente" />
+          <Metric label="CAN técnico" value="por impressora" />
+        </div>
+      </article>
+
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Fatiamento controlado</h2>
+            <p>Verificação somente leitura da engine CLI. O Printora não embute a interface do fatiador.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void loadSlicingEngine()} disabled={slicingLoading}>
+            <RefreshCw className={slicingLoading ? "button-busy-icon" : undefined} size={16} />
+            {slicingLoading ? "Verificando" : "Verificar engine"}
+          </button>
+        </div>
+        <div className="release-summary-grid">
+          <Metric label="Engine" value={slicingEngine?.engine ?? "OrcaSlicer"} />
+          <Metric label="Status" value={slicingEngine?.status === "ready" ? "pronta" : "bloqueada"} />
+          <Metric label="Versão" value={slicingEngine?.version_text ?? "-"} />
+          <Metric label="Modo" value="dry-run" />
+        </div>
+        {slicingError ? (
+          <div className="action-result warning">
+            <strong>Falha na verificação</strong>
+            <span>{slicingError}</span>
           </div>
         ) : null}
-
-        <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
-          <div className="panel-header-row">
-            <div>
-              <h2>Releases do Printora</h2>
-              <p>{releaseLoading ? "Consultando GitHub Releases..." : systemReleases?.message ?? "Status ainda não carregado."}</p>
-            </div>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => void loadSystemReleases()}
-              disabled={releaseLoading}
-            >
-              <RefreshCw className={releaseLoading ? "button-busy-icon" : undefined} size={16} />
-              {releaseLoading ? "Verificando" : "Verificar releases"}
-            </button>
+        {slicingEngine ? (
+          <div className={`action-result ${slicingEngine.status === "ready" ? "success" : "warning"}`}>
+            <strong>{slicingEngine.status === "ready" ? "Engine detectada" : "Engine não configurada"}</strong>
+            <span>{slicingEngine.detected_path ?? slicingEngine.installation_hint}</span>
+            {slicingEngine.warnings.length ? <small>{slicingEngine.warnings.join(" ")}</small> : null}
           </div>
-          <div className="release-summary-grid">
-            <Metric label="Versão instalada" value={systemReleases?.installed_version ?? "-"} />
-            <Metric label="Última release" value={systemReleases?.latest_release?.tag ?? "-"} />
-            <Metric label="Canal" value={systemReleases?.channel ?? "-"} />
-            <Metric label="Status" value={formatReleaseUpdateStatus(systemReleases, releaseLoading, releaseError)} />
-          </div>
-          {releaseError ? (
-            <div className="action-result warning">
-              <strong>Erro de rede</strong>
-              <span>{releaseError}</span>
-            </div>
-          ) : null}
-          {systemReleases?.error ? (
-            <div className="action-result warning">
-              <strong>{formatReleaseSourceStatus(systemReleases.status)}</strong>
-              <span>{systemReleases.error}</span>
-            </div>
-          ) : null}
-          {systemReleases?.latest_release ? (
-            <div className="release-latest-card">
-              <div>
-                <span className={`status-pill ${releaseStatusPillClass(systemReleases)}`}>
-                  {formatReleaseUpdateStatus(systemReleases, false, null)}
-                </span>
-                <strong>{systemReleases.latest_release.name}</strong>
-                <small>
-                  {systemReleases.latest_release.tag} · {systemReleases.latest_release.published_at ?? "sem data"} · {systemReleases.latest_release.channel}
-                </small>
-              </div>
-              <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
-              {systemReleases.latest_release_available ? (
-                <div className="update-actions">
-                  <button type="button" className="secondary-button" onClick={() => void startSelfUpdateFlow()} disabled={releaseLoading}>
-                    <ShieldAlert size={16} />
-                    Atualizar agora
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {selfUpdateMessage ? (
-            <div className={`action-result ${selfUpdateConnectionLost ? "warning" : ""}`}>
-              <strong>{selfUpdateConnectionLost ? "Conexão interrompida" : "Updater do Printora"}</strong>
-              <span>{selfUpdateMessage}</span>
-            </div>
-          ) : null}
-        </article>
+        ) : null}
+      </article>
 
-        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel release-history-panel">
-          <summary className="settings-advanced-summary">
-            <span>Releases anteriores</span>
-          </summary>
-          <div className="release-list">
-            {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
-            {!releaseLoading && displayedReleaseRows.length === 0 ? (
-              <p className="muted">Nenhuma release anterior para listar.</p>
-            ) : null}
-            {displayedReleaseRows.map((release: any) => (
-              <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
-                <div>
-                  <strong>{release.name}</strong>
-                  <span>
-                    {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "instalada" : release.channel}
-                  </span>
-                </div>
-                <p>{release.changelog_summary || "Sem changelog informado."}</p>
-              </div>
-            ))}
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Pipeline de fatiamento</h2>
+            <p>Diagnóstico técnico de jobs, artefatos, preflight e entregas. O fluxo diário começa em Projetos de impressão.</p>
           </div>
-        </details>
-
-        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel self-update-history">
-          <summary className="settings-advanced-summary">
-            <span>Histórico de updates</span>
-            <button
-              type="button"
-              className="secondary-button compact-summary-action"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void loadSelfUpdateHistory();
-              }}
-            >
-              <History size={15} />
-              Recarregar
-            </button>
-            <button
-              type="button"
-              className="secondary-button compact-summary-action"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void reconcileSelfUpdateHistory();
-              }}
-              disabled={selfUpdateReconciling}
-            >
-              <RefreshCw className={selfUpdateReconciling ? "button-busy-icon" : undefined} size={15} />
-              {selfUpdateReconciling ? "Reconciliando" : "Reconciliar travados"}
-            </button>
-          </summary>
-          {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
-          {selfUpdateHistory.slice(0, 5).map((run: any) => (
-            <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
+          <button type="button" className="secondary-button" onClick={() => void loadSlicingPipeline()} disabled={slicingJobBusy}>
+            <RefreshCw className={slicingJobBusy ? "button-busy-icon" : undefined} size={16} />
+            Recarregar
+          </button>
+        </div>
+        <div className="action-result">
+          <strong>Entrada operacional rebaixada</strong>
+          <span>Criação de job, preflight novo, salvar G-code e iniciar impressão ficam no detalhe do projeto. Esta área permanece para suporte, leitura e ações seguras em jobs existentes.</span>
+          <a className="secondary-button compact" href="/?section=projects">Abrir projetos de impressão</a>
+        </div>
+        <div className="settings-job-list">
+          {slicingJobs.length === 0 ? <p className="muted">Nenhum job de fatiamento registrado.</p> : null}
+          {slicingJobs.slice(0, 6).map((job) => (
+            <div key={job.id} className={`update-row ${job.status === "failed" ? "failed" : job.status === "completed" ? "success" : ""}`}>
               <div className="update-main">
                 <div>
-                  <strong>#{run.id} · {run.target_tag}</strong>
-                  <span>
-                    {formatSelfUpdateStatus(run.status)} · {run.created_at}
-                  </span>
+                  <strong>#{job.id} · {job.model_reference}</strong>
+                  <span>{slicingJobStatus(job.status)} · {job.quality_reference} · {formatDateTime(job.created_at)}</span>
+                  {job.error_message ? <small>{job.error_message}</small> : null}
+                  {job.artifacts.length ? <small>{job.artifacts.length} artefato(s) rastreado(s)</small> : null}
+                  <PreflightSummary preflight={latestPreflightForJob(printPreflights, job.id)} delivery={latestDeliveryForJob(printDeliveries, job.id)} />
                 </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => {
-                    setSelfUpdateConfirmation("");
-                    setSelfUpdateRollbackConfirmation("");
-                    setSelfUpdatePlan({
-                      safe_mode: "history",
-                      update_supported: isSelfUpdateEnvironmentSupported(run.environment),
-                      can_apply: false,
-                      message: "Detalhes do update registrado.",
-                      run,
-                    });
-                    setSelfUpdateModalOpen(true);
-                  }}
-                >
-                  <FileText size={15} />
-                  Ver detalhes
-                </button>
-                {run.status === "running" ? (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => void reconcileSelfUpdateHistory()}
-                    disabled={selfUpdateReconciling}
-                  >
-                    <RefreshCw className={selfUpdateReconciling ? "button-busy-icon" : undefined} size={15} />
-                    {selfUpdateReconciling ? "Reconciliando" : "Atualizar status"}
-                  </button>
-                ) : null}
-                {canRollbackSelfUpdateRun(run) ? (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => {
-                      setSelfUpdateConfirmation("");
-                      setSelfUpdateRollbackConfirmation("");
-                      setSelfUpdatePlan({
-                        safe_mode: "history",
-                        update_supported: isSelfUpdateEnvironmentSupported(run.environment),
-                        can_apply: false,
-                        message: "Revise os detalhes antes do rollback.",
-                        run,
-                      });
-                      setSelfUpdateModalOpen(true);
-                    }}
-                  >
-                    <Undo2 size={15} />
-                    Rollback
-                  </button>
-                ) : null}
+                <div className="inline-actions">
+                  {(() => {
+                    const latestPreflight = latestPreflightForJob(printPreflights, job.id);
+                    const latestDelivery = latestDeliveryForJob(printDeliveries, job.id);
+                    return (
+                      <>
+                  {job.status === "planned" || job.status === "running" ? (
+                    <button type="button" className="secondary-button" onClick={() => void cancelSlicingJob(job.id)} disabled={slicingJobBusy}>
+                      Cancelar
+                    </button>
+                  ) : null}
+                  {latestPreflightForJob(printPreflights, job.id)?.status === "pending_remote" ? (
+                    <button type="button" className="secondary-button" onClick={() => void refreshPrintPreflight(latestPreflightForJob(printPreflights, job.id)!.id)} disabled={slicingJobBusy}>
+                      Atualizar preflight
+                    </button>
+                  ) : null}
+                  {latestDelivery?.status === "saved" && latestDelivery.mode === "save_only" ? (
+                    <button type="button" className="secondary-button" onClick={() => void rollbackPrintDelivery(latestDelivery.id)} disabled={slicingJobBusy}>
+                      Remover arquivo
+                    </button>
+                  ) : null}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           ))}
-        </details>
+        </div>
+      </article>
 
-        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel install-diagnostics-panel">
-          <summary className="settings-advanced-summary">
-            <span>Diagnóstico da instalação</span>
-            <button
-              type="button"
-              className="secondary-button compact-summary-action"
-              onClick={(event) => void refreshInstallDiagnostics(event)}
-              disabled={installDiagnosticLoading}
-            >
-              <RefreshCw className={installDiagnosticLoading ? "button-busy-icon" : undefined} size={15} />
-              {installDiagnosticLoading ? "Atualizando" : "Atualizar"}
-            </button>
-            <button
-              type="button"
-              className="secondary-button compact-summary-action"
-              onClick={(event) => void copyInstallDiagnostics(event)}
-              disabled={installDiagnosticLoading}
-            >
-              <ClipboardCheck size={15} />
-              {installDiagnosticCopyState === "copied" ? "Copiado" : installDiagnosticCopyState === "failed" ? "Falhou" : "Copiar diagnóstico"}
-            </button>
-          </summary>
-          <p className="muted">Use este painel quando a instalação, atualização ou inicialização local não estiver clara.</p>
-          <strong className="summary">{installDiagnostics?.summary ?? "Aguardando diagnóstico"}</strong>
-          <div className="install-diagnostics-grid">
-            <Badge icon={Settings} label="Versão" value={installDiagnostics?.installed_version ?? "-"} />
-            <Badge icon={Activity} label="Ambiente" value={installDiagnostics?.environment ?? "-"} />
-            <Badge icon={ShieldCheck} label="OK" value={installDiagnostics?.counts.ok ?? 0} />
-            <Badge icon={AlertTriangle} label="Atenção" value={(installDiagnostics?.counts.warning ?? 0) + (installDiagnostics?.counts.error ?? 0)} />
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Histórico de impressão</h2>
+            <p>Resultados, feedback e telemetria segura vinculados ao modelo, versão, perfil e impressora.</p>
           </div>
-          <div className="install-diagnostics-meta">
-            <span>Porta: {installDiagnostics?.port ?? "-"}</span>
-            <span>Dados: {installDiagnostics?.data_dir ?? "-"}</span>
-            <span>Banco: {installDiagnostics?.database_path ?? "-"}</span>
-          </div>
-          <div className="install-diagnostics-list">
-            {installDiagnostics?.items.map((item: any) => (
-              <div key={item.key} className={`install-diagnostic-row ${item.status}`}>
-                <div>
-                  <strong>{item.label}</strong>
-                  <span>{item.status}</span>
+          <button type="button" className="secondary-button" onClick={() => void loadSlicingPipeline()} disabled={slicingJobBusy}>
+            <RefreshCw className={slicingJobBusy ? "button-busy-icon" : undefined} size={16} />
+            Recarregar
+          </button>
+        </div>
+        <div className="settings-job-list">
+          {printHistory.length === 0 ? <p className="muted">Nenhum histórico de impressão registrado.</p> : null}
+          {printHistory.slice(0, 8).map((history) => {
+            const draft = feedbackDrafts[history.id] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+            return (
+              <div key={history.id} className={`update-row ${history.status === "failed" ? "failed" : history.status === "completed" ? "success" : ""}`}>
+                <div className="update-main">
+                  <div>
+                    <strong>{history.model_reference}</strong>
+                    <span>{printHistoryStatus(history.status)} · {history.quality_reference || "qualidade padrão"} · {formatDateTime(history.created_at)}</span>
+                    <small>Retenção: {history.retention_days} dias · {history.visibility === "public" ? "feedback público" : "privado"}</small>
+                    <PrintTelemetrySummary history={history} />
+                    {history.feedback.slice(0, 2).map((feedback) => (
+                      <small key={feedback.id}>{feedbackOutcomeText(feedback.outcome)} · {feedback.visibility === "public" ? "público" : "privado"}{feedback.note ? ` · ${feedback.note}` : ""}</small>
+                    ))}
+                  </div>
+                  <div className="inline-actions print-history-actions">
+                    <button type="button" className="secondary-button" onClick={() => void recordPrintResult(history, "completed")} disabled={slicingJobBusy}>Concluiu</button>
+                    <button type="button" className="secondary-button" onClick={() => void recordPrintResult(history, "failed")} disabled={slicingJobBusy}>Falhou</button>
+                  </div>
                 </div>
-                <p>{item.detail}</p>
-                {item.command ? <code>{item.command}</code> : null}
+                <div className="settings-inline-form compact">
+                  <label>
+                    Resultado
+                    <select
+                      value={draft.outcome}
+                      onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, outcome: event.target.value as PrintJobFeedback["outcome"] } }))}
+                    >
+                      <option value="worked">Deu certo</option>
+                      <option value="failed">Falhou</option>
+                      <option value="needs_adjustment">Precisa ajuste</option>
+                    </select>
+                  </label>
+                  <label>
+                    Visibilidade
+                    <select
+                      value={draft.visibility}
+                      onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, visibility: event.target.value as PrintJobFeedback["visibility"] } }))}
+                    >
+                      <option value="private">Privado</option>
+                      <option value="public">Público</option>
+                    </select>
+                  </label>
+                  <label>
+                    Observação
+                    <input value={draft.note} maxLength={500} onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, note: event.target.value } }))} />
+                  </label>
+                  <label>
+                    Foto HTTPS
+                    <input value={draft.photo_url} placeholder="https://..." onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, photo_url: event.target.value } }))} />
+                  </label>
+                  <button type="button" className="primary-button" onClick={() => void submitPrintFeedback(history)} disabled={slicingJobBusy}>Salvar feedback</button>
+                </div>
               </div>
-            ))}
-          </div>
-        </details>
+            );
+          })}
+        </div>
+      </article>
 
-        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel can-technical-panel">
-          <summary className="settings-advanced-summary">
-            <span>Registro técnico CAN</span>
-            <button
-              type="button"
-              className="icon-button help-icon-button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setSettingsHelpTopic("can");
-              }}
-              aria-label="Ajuda sobre Registro técnico CAN"
-              title="Ajuda"
-            >
-              <HelpCircle size={16} />
-            </button>
-            <strong>{formatCanAlert(canSummary?.overall_alert ?? canRecords[0]?.alert_level ?? "ok")}</strong>
-          </summary>
-          <div className="can-summary">
-            <Badge label="Modo" value={canSummary?.safe_mode ?? "manual_read_only"} />
-            <Badge label="Dados" value={canSummary?.data_state === "manual_records" ? "registros manuais" : "sem registros"} />
-            <Badge label="OK" value={canSummary?.counts.ok ?? 0} />
-            <Badge label="Monitorar" value={canSummary?.counts.monitorar ?? 0} />
-            <Badge label="Problemas" value={canSummary?.counts.problema ?? 0} />
-          </div>
-          <div className="panel-actions">
-            <button type="button" className="secondary-button" onClick={() => void compareLatestCanRecords()} disabled={!selectedPrinterId || loading || canRecords.length < 2}>
-              Comparar últimas leituras
-            </button>
-          </div>
-          {canSummary?.data_state === "no_data" ? (
-            <p className="muted">Nenhuma leitura CAN local registrada. Este formulário é técnico e não aparece na tela de monitoramento.</p>
-          ) : null}
-          {canComparison ? (
-            <div className={`can-row ${canComparison.alert_level}`}>
-              <strong>Comparação #{canComparison.before_record_id} → #{canComparison.after_record_id}</strong>
-              <span>
-                {canComparison.interface_name} · rx={canComparison.delta_rx_error} · tx={canComparison.delta_tx_error} · retries={canComparison.delta_tx_retries}
-              </span>
-              <small>{canComparison.diagnosis}</small>
-              <small>{canComparison.recommended_actions.join(" · ")}</small>
+      {isPlatformAdmin ? (
+        <>
+          <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
+            <div className="panel-header-row">
+              <div>
+                <h2>Plataforma Printora (interno)</h2>
+                <p>Visível somente para suporte. Clientes operam releases de agente dentro dos registros de agente.</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void loadSystemReleases()}
+                disabled={releaseLoading}
+              >
+                <RefreshCw className={releaseLoading ? "button-busy-icon" : undefined} size={16} />
+                {releaseLoading ? "Verificando" : "Verificar plataforma"}
+              </button>
             </div>
-          ) : null}
-          <div className="can-parser">
-            <textarea
-              aria-label="Saída bruta ip link CAN"
-              value={canRawOutput}
-              onChange={(event: any) => setCanRawOutput(event.target.value)}
-              placeholder="Cole aqui a saída de ip -details -statistics link show can0 para preencher os campos."
-            />
-            <button type="button" className="secondary-button" onClick={() => void parseCanRawOutput()} disabled={!selectedPrinterId || loading || !canRawOutput.trim()}>
-              Extrair leitura
-            </button>
-          </div>
-          <form className="can-form" onSubmit={(event: any) => void createCanRecord(event)}>
-            <input
-              aria-label="Interface CAN"
-              value={canInterfaceName}
-              onChange={(event: any) => setCanInterfaceName(event.target.value)}
-              placeholder="can0"
-            />
-            <input
-              aria-label="RX error"
-              type="number"
-              min="0"
-              value={canRxError}
-              onChange={(event: any) => setCanRxError(Number(event.target.value))}
-            />
-            <input
-              aria-label="TX error"
-              type="number"
-              min="0"
-              value={canTxError}
-              onChange={(event: any) => setCanTxError(Number(event.target.value))}
-            />
-            <input
-              aria-label="TX retries"
-              type="number"
-              min="0"
-              value={canTxRetries}
-              onChange={(event: any) => setCanTxRetries(Number(event.target.value))}
-            />
-            <input
-              aria-label="Estado do barramento"
-              value={canBusState}
-              onChange={(event: any) => setCanBusState(event.target.value)}
-              placeholder="ERROR-ACTIVE"
-            />
-            <input
-              aria-label="Bitrate CAN"
-              type="number"
-              min="1"
-              value={canBitrate}
-              onChange={(event: any) => setCanBitrate(Number(event.target.value))}
-            />
-            <textarea
-              aria-label="Notas CAN"
-              value={canNotes}
-              onChange={(event: any) => setCanNotes(event.target.value)}
-              placeholder="Ex.: leitura manual de ip -details -statistics link show can0"
-            />
-            <button type="submit" disabled={!selectedPrinterId || loading}>
-              Registrar
-            </button>
-          </form>
-          <div className="can-list">
-            {canRecords.length === 0 ? <p className="muted">Nenhuma leitura CAN registrada.</p> : null}
-            {canRecords.map((record: any) => (
-              <div key={record.id} className={`can-row ${record.alert_level}`}>
-                <strong>{formatCanAlert(record.alert_level)}</strong>
-                <span>
-                  {record.interface_name} · rx={record.rx_error} · tx={record.tx_error} · retries={record.tx_retries} ·{" "}
-                  {record.recorded_at}
-                </span>
-                <small>
-                  Delta rx={formatOptionalInt(record.delta_rx_error)} · tx={formatOptionalInt(record.delta_tx_error)} ·
-                  retries={formatOptionalInt(record.delta_tx_retries)}
-                </small>
-                <small>
-                  Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}
-                </small>
-                <small>{record.diagnosis}</small>
-                {record.recommended_actions.length ? <small>{record.recommended_actions.join(" · ")}</small> : null}
-                {record.notes ? <small>{record.notes}</small> : null}
+            <div className="release-summary-grid">
+              <Metric label="Versão publicada" value={systemReleases?.installed_version ?? "-"} />
+              <Metric label="Última release" value={systemReleases?.latest_release?.tag ?? "-"} />
+              <Metric label="Canal" value={systemReleases?.channel ?? "-"} />
+              <Metric label="Status" value={formatReleaseUpdateStatus(systemReleases, releaseLoading, releaseError)} />
+            </div>
+            {releaseError ? (
+              <div className="action-result warning">
+                <strong>Erro de rede</strong>
+                <span>{releaseError}</span>
               </div>
-            ))}
-          </div>
-        </details>
-
-        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel host-diagnostics-panel">
-          <summary className="settings-advanced-summary">
-            <span>Diagnóstico avançado do host</span>
-            <button
-              type="button"
-              className="icon-button help-icon-button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setSettingsHelpTopic("host");
-              }}
-              aria-label="Ajuda sobre Diagnóstico avançado do host"
-              title="Ajuda"
-            >
-              <HelpCircle size={16} />
-            </button>
-          </summary>
-          <p className="muted">Leitura técnica do computador onde o Printora roda. Use quando precisar investigar systemd, CAN, symlinks ou repositórios locais.</p>
-          <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
-          <div className="audit-counts">
-            <Badge icon={Settings} label="Modo" value={hostAudit?.mode ?? "-"} />
-            <Badge icon={Activity} label="Executou" value={hostAudit?.executed ? "sim" : "não"} />
-            <Badge icon={AlertTriangle} label="Monitorar" value={hostAudit?.counts.monitorar ?? 0} />
-            <Badge icon={ShieldCheck} label="Corrigir" value={hostAudit?.counts.corrigir_agora ?? 0} />
-          </div>
-          <div className="section-summary">
-            {hostAudit?.section_summary
-              ? Object.entries(hostAudit.section_summary).map(([key, value]) => (
-                  <Metric key={key} label={formatMetricLabel(key)} value={formatUnknown(value)} />
-                ))
-              : null}
-          </div>
-          <div className="findings">
-            {hostAudit?.findings.map((finding: any) => (
-              <div key={finding.id} className={`finding ${finding.severity}`}>
+            ) : null}
+            {systemReleases?.error ? (
+              <div className="action-result warning">
+                <strong>{formatReleaseSourceStatus(systemReleases.status)}</strong>
+                <span>{systemReleases.error}</span>
+              </div>
+            ) : null}
+            {systemReleases?.latest_release ? (
+              <div className="release-latest-card">
                 <div>
-                  <strong>{finding.title}</strong>
-                  <span>{finding.category} · {formatClassification(finding.classification)}</span>
+                  <span className={`status-pill ${releaseStatusPillClass(systemReleases)}`}>
+                    {formatReleaseUpdateStatus(systemReleases, false, null)}
+                  </span>
+                  <strong>{systemReleases.latest_release.name}</strong>
+                  <small>
+                    {systemReleases.latest_release.tag} · {systemReleases.latest_release.published_at ?? "sem data"} ·{" "}
+                    {systemReleases.latest_release.channel}
+                  </small>
                 </div>
-                <p>{finding.detail}</p>
-                <small>{finding.safe_action}</small>
+                <p>{releaseSummaryForDisplay(systemReleases.latest_release.changelog_summary)}</p>
+              </div>
+            ) : (
+              <div className="release-latest-card">
+                <div>
+                  <span className="status-pill">interno</span>
+                  <strong>Status da plataforma ainda não carregado</strong>
+                  <small>Use verificar plataforma para consultar o estado publicado.</small>
+                </div>
+                <p>Em cloud, update da plataforma é rotina administrativa fora da operação do cliente.</p>
+              </div>
+            )}
+          </article>
+
+          <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel release-history-panel">
+            <summary className="settings-advanced-summary">
+              <span>Releases anteriores</span>
+            </summary>
+            <div className="release-list">
+              {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
+              {!releaseLoading && displayedReleaseRows.length === 0 ? (
+                <p className="muted">Nenhuma release anterior para listar.</p>
+              ) : null}
+              {displayedReleaseRows.map((release: any) => (
+                <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
+                  <div>
+                    <strong>{release.name}</strong>
+                    <span>
+                      {release.tag} · {release.published_at ?? "sem data"} ·{" "}
+                      {release.installed ? "publicada" : release.channel}
+                    </span>
+                  </div>
+                  <p>{releaseSummaryForDisplay(release.changelog_summary)}</p>
+                </div>
+              ))}
+            </div>
+          </details>
+
+          <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel self-update-history">
+            <summary className="settings-advanced-summary">
+              <span>Histórico da plataforma</span>
+              <button
+                type="button"
+                className="secondary-button compact-summary-action"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void loadSelfUpdateHistory();
+                }}
+              >
+                <History size={15} />
+                Recarregar
+              </button>
+            </summary>
+            <p className="muted">
+              Histórico administrativo do Printora. Update e rollback da plataforma não são operação do usuário final.
+            </p>
+            {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
+            {selfUpdateHistory.slice(0, 5).map((run: any) => (
+              <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
+                <div className="update-main">
+                  <div>
+                    <strong>#{run.id} · {run.target_tag}</strong>
+                    <span>
+                      {formatSelfUpdateStatus(run.status)} · {formatDateTime(run.created_at)}
+                    </span>
+                  </div>
+                  <FileText size={16} />
+                </div>
               </div>
             ))}
-          </div>
-        </details>
-
+          </details>
+        </>
+      ) : null}
     </>
   );
 }
 
-async function copyTextToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.top = "-1000px";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      return document.execCommand("copy");
-    } finally {
-      document.body.removeChild(textarea);
-    }
+function numberOrNull(value: string): number | null {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function slicingJobStatus(status: SlicingJob["status"]): string {
+  const labels: Record<SlicingJob["status"], string> = {
+    planned: "planejado",
+    running: "executando",
+    completed: "concluído",
+    failed: "falhou",
+    canceled: "cancelado",
+  };
+  return labels[status];
+}
+
+function latestPreflightForJob(preflights: PrintPreflight[], jobId: number): PrintPreflight | null {
+  return preflights.find((item) => item.slicing_job_id === jobId) ?? null;
+}
+
+function latestDeliveryForJob(deliveries: PrintDelivery[], jobId: number): PrintDelivery | null {
+  return deliveries.find((item) => item.slicing_job_id === jobId) ?? null;
+}
+
+function printHistoryStatus(status: PrintJobHistory["status"]): string {
+  const labels: Record<PrintJobHistory["status"], string> = {
+    sent: "enviado",
+    started: "iniciado",
+    completed: "concluído",
+    failed: "falhou",
+    canceled: "cancelado",
+  };
+  return labels[status];
+}
+
+function releaseSummaryForDisplay(summary?: string | null): string {
+  if (!summary?.trim()) {
+    return "Sem changelog informado.";
   }
+  return summary
+    .replace(/\bPKG-\d+\s*:\s*/gi, "")
+    .replace(/\bPKG-\d+\b/gi, "entrega")
+    .replace(/\blote\s+\d+\b/gi, "etapa")
+    .trim();
+}
+
+function feedbackOutcomeText(outcome: PrintJobFeedback["outcome"]): string {
+  const labels: Record<PrintJobFeedback["outcome"], string> = {
+    worked: "deu certo",
+    failed: "falhou",
+    needs_adjustment: "precisa ajuste",
+  };
+  return labels[outcome];
+}
+
+function PrintTelemetrySummary({ history }: { history: PrintJobHistory }) {
+  const entries = [
+    history.telemetry.duration_seconds ? `${Math.round(Number(history.telemetry.duration_seconds) / 60)} min` : "",
+    history.telemetry.filament_used_g ? `${history.telemetry.filament_used_g}g` : "",
+    history.telemetry.layer_count ? `${history.telemetry.layer_count} camadas` : "",
+  ].filter(Boolean);
+  if (entries.length === 0) return null;
+  return <small>{entries.join(" · ")}</small>;
+}
+
+function PreflightSummary({ preflight, delivery }: { preflight: PrintPreflight | null; delivery: PrintDelivery | null }) {
+  if (!preflight && !delivery) return null;
+  const labels: Record<PrintPreflight["status"], string> = {
+    approved: "preflight aprovado",
+    blocked: "preflight bloqueado",
+    pending_remote: "preflight remoto pendente",
+    failed: "preflight falhou",
+  };
+  const deliveryLabels: Record<PrintDelivery["status"], string> = {
+    pending_remote: "envio pendente",
+    saved: "G-code salvo",
+    printing: "impressão iniciada",
+    blocked: "envio bloqueado",
+    failed: "envio falhou",
+    canceled: "envio cancelado",
+    rollback_pending: "remoção pendente",
+    rolled_back: "arquivo removido",
+    rollback_failed: "remoção falhou",
+  };
+  return (
+    <div className={`settings-preflight-summary ${preflight?.status ?? delivery?.status}`}>
+      {preflight ? (
+        <>
+          <small>{labels[preflight.status]} · {preflight.local_metadata.command_count ?? 0} comando(s)</small>
+          {preflight.blockers.slice(0, 2).map((blocker) => <small key={blocker}>{blocker}</small>)}
+          {preflight.warnings.slice(0, 2).map((warning) => <small key={warning}>{warning}</small>)}
+          {preflight.status === "approved" ? <small>{preflight.checklist.slice(0, 3).join(" · ")}</small> : null}
+        </>
+      ) : null}
+      {delivery ? (
+        <>
+          <small>{deliveryLabels[delivery.status]} · {delivery.remote_filename}</small>
+          {delivery.blockers.slice(0, 2).map((blocker) => <small key={blocker}>{blocker}</small>)}
+        </>
+      ) : null}
+    </div>
+  );
 }

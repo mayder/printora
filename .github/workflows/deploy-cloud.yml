@@ -12,37 +12,204 @@ env:
   DEFAULT_SSH_PORT: "1158"
   DEFAULT_SSH_USER: deploy
   DEFAULT_DEPLOY_BASE_PATH: /var/www/print3dmaker.xyz
-  DEFAULT_DEPLOY_BRANCH: cloud
 
 jobs:
-  deploy:
-    name: Deploy cloud branch to production
+  infrastructure-preflight:
+    name: Fast production preflight
     runs-on: ubuntu-latest
     environment: production
-
     steps:
-      - name: Checkout cloud branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.DEFAULT_DEPLOY_BRANCH }}
-
-      - name: Validate official check
-        run: ./check.sh
-
-      - name: Validate cloud target metadata
-        run: test -s packaging/cloud/production-target.env.example
-
-      - name: Package release
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRINTORA_SSH_PRIVATE_KEY }}
+          SSH_HOST_SECRET: ${{ secrets.PRINTORA_SSH_HOST }}
+          SSH_PORT_SECRET: ${{ secrets.PRINTORA_SSH_PORT }}
+          SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRINTORA_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          DEPLOY_SHA="$(git rev-parse HEAD)"
-          echo "DEPLOY_SHA=$DEPLOY_SHA" >> "$GITHUB_ENV"
+          test -n "$SSH_PRIVATE_KEY" || { echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "::error::Secret PRINTORA_SSH_KNOWN_HOSTS nao configurado."; exit 1; }
+          SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
+          SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
+          SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
+          chmod 600 ~/.ssh/printora_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          {
+            echo "SSH_HOST=$SSH_HOST"
+            echo "SSH_PORT=$SSH_PORT"
+            echo "SSH_USER=$SSH_USER"
+          } >> "$GITHUB_ENV"
+
+      - name: Retain linked releases and validate capacity
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
+            set -euo pipefail
+            if [[ ! -e /etc/printora-cloud/preserve-releases ]] && sudo -n /usr/local/sbin/printora-cloud-retain-releases --dry-run >/dev/null 2>&1; then
+              sudo -n /usr/local/sbin/printora-cloud-retain-releases --apply
+            fi
+            sudo -n /usr/local/sbin/printora-cloud-preflight --quick
+          '
+
+  quality:
+    name: Quality / ${{ matrix.gate }}
+    needs: infrastructure-preflight
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        gate: [static, e2e, property-fuzz, mutation, coverage]
+    steps:
+      - name: Checkout immutable workflow SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Configure Node.js
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'e2e' || matrix.gate == 'coverage' }}
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure npm
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'e2e' || matrix.gate == 'coverage' }}
+        run: npm install --global npm@11.7.0
+
+      - name: Configure Go
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'coverage' }}
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.25.13
+          cache-dependency-path: agent/go.sum
+
+      - name: Configure uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: 0.11.0
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install frontend dependencies
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'e2e' || matrix.gate == 'coverage' }}
+        run: npm --prefix frontend ci
+
+      - name: Install E2E browser
+        if: ${{ matrix.gate == 'e2e' }}
+        run: npm --prefix frontend exec -- playwright install --with-deps chromium
+
+      - name: Run isolated gate
+        env:
+          CHECK_STRICT_SECRETS: "1"
+          CHECK_STRICT_RUNTIME_NAMES: "1"
+        run: |
+          set -euo pipefail
+          case "${{ matrix.gate }}" in
+            static)
+              SKIP_QUALITY_STACK_TEST=1 \
+              SKIP_QUALITY_COVERAGE=1 \
+              RUN_PYTHON_TESTS=0 \
+              RUN_FRONTEND_CHECKS=1 \
+                ./check.sh
+              ;;
+            e2e) scripts/run-e2e-gate.sh ;;
+            property-fuzz) scripts/run-property-fuzz-gate.sh ;;
+            mutation) scripts/run-mutation-gate.sh ;;
+            coverage) scripts/run-coverage-gate.sh ;;
+            *) exit 2 ;;
+          esac
+
+      - name: Publish gate evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: quality-${{ matrix.gate }}-${{ github.sha }}
+          path: |
+            .artifacts/coverage
+            .artifacts/e2e
+            .artifacts/mutation
+          if-no-files-found: ignore
+          retention-days: 30
+
+  deploy:
+    name: Package and deploy approved SHA
+    needs: quality
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout immutable approved SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Configure Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure npm
+        run: npm install --global npm@11.7.0
+
+      - name: Configure Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.25.13
+          cache-dependency-path: agent/go.sum
+
+      - name: Configure uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: 0.11.0
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Validate reproducible frontend build
+        run: npm --prefix frontend run build:reproducible
+
+      - name: Audit production dependencies
+        run: |
+          set -euo pipefail
+          npm --prefix frontend audit --omit=dev --audit-level=high
+          cd backend
+          uv run --with pip-audit==2.10.1 pip-audit --local
+          cd ../agent
+          go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+
+      - name: Generate reproducible SBOM
+        run: scripts/generate-sbom.sh
+
+      - name: Publish SBOM evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sbom-${{ github.sha }}
+          path: .artifacts/sbom
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Package immutable release
+        run: |
+          set -euo pipefail
+          test -s frontend/dist/index.html
           tar \
             --exclude='.git' \
+            --exclude='.artifacts' \
             --exclude='backend/.venv' \
             --exclude='frontend/node_modules' \
             --exclude='agent/bin' \
             -czf "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" .
+          sha256sum "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" > "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz.sha256"
 
       - name: Configure SSH
         env:
@@ -50,31 +217,60 @@ jobs:
           SSH_HOST_SECRET: ${{ secrets.PRINTORA_SSH_HOST }}
           SSH_PORT_SECRET: ${{ secrets.PRINTORA_SSH_PORT }}
           SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRINTORA_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          if [ -z "$SSH_PRIVATE_KEY" ]; then
-            echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."
-            exit 1
-          fi
+          test -n "$SSH_PRIVATE_KEY" || { echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "::error::Secret PRINTORA_SSH_KNOWN_HOSTS nao configurado."; exit 1; }
           SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
           SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
           SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
           chmod 600 ~/.ssh/printora_key
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           {
             echo "SSH_HOST=$SSH_HOST"
             echo "SSH_PORT=$SSH_PORT"
             echo "SSH_USER=$SSH_USER"
           } >> "$GITHUB_ENV"
 
+      - name: Validate definitive privileged preflight
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
+            if sudo -n /usr/local/sbin/printora-cloud-preflight; then
+              exit 0
+            fi
+            echo "::error::Diagnóstico seguro do recovery readiness:"
+            sudo -n /usr/local/libexec/printora-cloud/recovery-readiness.py || true
+            exit 1
+          '
+
       - name: Upload release bundle
         run: |
           set -euo pipefail
-          scp -i ~/.ssh/printora_key -P "$SSH_PORT" "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" "$SSH_USER@$SSH_HOST:/tmp/printora-cloud-release-$DEPLOY_SHA.tgz"
+          for attempt in 1 2 3; do
+            if scp \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=20 \
+              -o TCPKeepAlive=yes \
+              -i ~/.ssh/printora_key \
+              -P "$SSH_PORT" \
+              "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" \
+              "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz.sha256" \
+              "$SSH_USER@$SSH_HOST:/tmp/"; then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Upload do release falhou apos 3 tentativas."
+              exit 1
+            fi
+            sleep 5
+          done
 
-      - name: Publish release on target
+      - name: Prepare independent release
         env:
           DEPLOY_BASE_PATH_SECRET: ${{ secrets.PRINTORA_DEPLOY_BASE_PATH }}
         run: |
@@ -83,68 +279,52 @@ jobs:
           ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
             "DEPLOY_BASE_PATH='$DEPLOY_BASE_PATH' RELEASE_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          RELEASE_DIR="$DEPLOY_BASE_PATH/releases/$RELEASE_SHA"
-          BUNDLE="/tmp/printora-cloud-release-$RELEASE_SHA.tgz"
-
-          mkdir -p "$DEPLOY_BASE_PATH/releases" "$DEPLOY_BASE_PATH/shared/data" "$DEPLOY_BASE_PATH/shared/logs"
-          test -w "$DEPLOY_BASE_PATH"
-          command -v python3 >/dev/null
-          python3 --version
-          test -s "$BUNDLE"
-
-          rm -rf "$RELEASE_DIR"
-          mkdir -p "$RELEASE_DIR"
-          tar -xzf "$BUNDLE" -C "$RELEASE_DIR"
-
-          if [ ! -x "$DEPLOY_BASE_PATH/shared/venv/bin/python" ]; then
-            python3 -m venv "$DEPLOY_BASE_PATH/shared/venv"
+          release_dir="$DEPLOY_BASE_PATH/releases/$RELEASE_SHA"
+          bundle="/tmp/printora-cloud-release-$RELEASE_SHA.tgz"
+          checksum="$bundle.sha256"
+          cd /tmp
+          sha256sum -c "$checksum"
+          if [[ -e "$release_dir" && -s "$release_dir/RELEASE_SHA" ]]; then
+            test "$(cat "$release_dir/RELEASE_SHA")" = "$RELEASE_SHA"
+            test -x "$release_dir/venv/bin/python"
+            test -s "$release_dir/frontend/dist/index.html"
+            rm -f "$bundle" "$checksum"
+            exit 0
           fi
-          "$DEPLOY_BASE_PATH/shared/venv/bin/python" -m pip install --upgrade pip setuptools wheel
-          "$DEPLOY_BASE_PATH/shared/venv/bin/pip" install -e "$RELEASE_DIR/backend"
-
-          if [ ! -f "$DEPLOY_BASE_PATH/shared/printora-cloud.env" ]; then
-            cat > "$DEPLOY_BASE_PATH/shared/printora-cloud.env" <<ENV
-          PRINTORA_DATA_DIR=$DEPLOY_BASE_PATH/shared/data
-          PRINTORA_FRONTEND_DIST_DIR=$DEPLOY_BASE_PATH/current/frontend/dist
-          PRINTORA_HOST_AUDIT_MODE=disabled
-          PRINTORA_RELEASE_SOURCE_MODE=github
-          PRINTORA_RELEASE_GITHUB_OWNER=mayder
-          PRINTORA_RELEASE_GITHUB_REPO=printora
-          PRINTORA_RELEASE_CHANNEL=stable
-          ENV
+          if [[ -e "$release_dir" ]]; then
+            active_release="$(readlink -f "$DEPLOY_BASE_PATH/current" 2>/dev/null || true)"
+            [[ "$active_release" != "$release_dir" ]] || { echo "release ativa sem marcador; intervenção manual necessária" >&2; exit 1; }
+            [[ ! -e /etc/printora-cloud/preserve-releases ]] || { echo "preservação de releases ativa; use novo commit" >&2; exit 1; }
+            rm -rf -- "$release_dir"
           fi
-
-          ln -sfn "$RELEASE_DIR" "$DEPLOY_BASE_PATH/current"
-          if sudo -n systemctl restart printora-cloud.service; then
-            echo "printora-cloud.service restarted by systemctl"
-          else
-            echo "sudo restart unavailable; terminating deploy-owned uvicorn process for systemd restart"
-            pkill -TERM -f 'uvicorn app.main:app' || true
-          fi
-
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8069/health >/dev/null; then
-              break
-            fi
-            if [ "$attempt" -eq 30 ]; then
-              sudo -n systemctl status printora-cloud.service --no-pager || true
-              exit 1
-            fi
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:8069/api/catalog >/dev/null
-          rm -f "$BUNDLE"
+          mkdir -p "$release_dir"
+          tar -xzf "$bundle" -C "$release_dir"
+          python3 -m venv "$release_dir/venv"
+          "$release_dir/venv/bin/pip" install --disable-pip-version-check 'uv==0.11.0'
+          VIRTUAL_ENV="$release_dir/venv" "$release_dir/venv/bin/uv" sync --active --frozen --no-dev --project "$release_dir/backend" --python "$release_dir/venv/bin/python"
+          (
+            cd "$release_dir/backend"
+            "$release_dir/venv/bin/python" -c 'import app, fastapi, uvicorn'
+          )
+          printf '%s\n' "$RELEASE_SHA" > "$release_dir/RELEASE_SHA"
+          rm -f "$bundle" "$checksum"
           REMOTE
+
+      - name: Switch traffic and drain previous slot
+        run: ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" sudo -n /usr/local/sbin/printora-cloud-deploy "$DEPLOY_SHA"
 
       - name: Validate public endpoint
         run: |
           set -euo pipefail
+          EXPECTED_AGENT_VERSION="$(python3 -c 'import json; print(json.load(open("backend/app/data/agent_update_manifest.json"))["recommended_version"])')"
           for attempt in $(seq 1 30); do
-            if curl -fsS https://print3dmaker.xyz/health >/dev/null \
-              && curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null; then
+            if curl --max-time 5 -fsS https://print3dmaker.xyz/health >/dev/null \
+              && curl --max-time 5 -fsS https://print3dmaker.xyz/ready >/dev/null \
+              && curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null \
+              && MANIFEST_JSON="$(curl --max-time 5 -fsS "https://print3dmaker.xyz/api/agent/update/manifest?deploy_sha=$DEPLOY_SHA")" \
+              && python3 -c 'import json,sys; raise SystemExit(0 if json.loads(sys.stdin.read()).get("recommended_version") == sys.argv[1] else 1)' "$EXPECTED_AGENT_VERSION" <<< "$MANIFEST_JSON"; then
               exit 0
             fi
             sleep 2
           done
-          curl -fsS https://print3dmaker.xyz/health
-          curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
+          exit 1

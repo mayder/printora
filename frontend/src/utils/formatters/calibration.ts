@@ -1,4 +1,4 @@
-import type { CalibrationExecutionRecord, CalibrationResultFormConfig, CalibrationRunRecord, CalibrationSequencePlan, CalibrationTestRecord } from "../../types";
+import type { CalibrationExecutionRecord, CalibrationResultFormConfig, CalibrationRunRecord, CalibrationSequencePlan, CalibrationTestRecord, OperationActionExecutionAttempt } from "../../types";
 
 export function formatCalibrationCategory(category: string) {
   const labels: Record<string, string> = {
@@ -50,6 +50,7 @@ export function formatCalibrationResult(resultStatus: CalibrationRunRecord["resu
 export function formatCalibrationExecutionStatus(status: string) {
   const labels: Record<string, string> = {
     executed: "executado",
+    dispatched_unconfirmed: "em andamento na impressora",
     blocked: "bloqueado",
     failed: "falhou",
     failed_partial: "falhou parcialmente",
@@ -61,6 +62,9 @@ export function calibrationExecutionRowClass(status: string) {
   if (status === "executed") {
     return "passed";
   }
+  if (status === "dispatched_unconfirmed") {
+    return "running";
+  }
   if (status === "failed" || status === "failed_partial") {
     return "failed";
   }
@@ -70,6 +74,9 @@ export function calibrationExecutionRowClass(status: string) {
 export function summarizeCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
   const finalState = latestCalibrationExecutionFinalState(execution);
   if (!finalState) {
+    if (execution.status === "dispatched_unconfirmed") {
+      return `${execution.sent_commands.length}/${execution.commands.length} comando(s) enviado(s); aguardando resposta final no console do Printora.`;
+    }
     return `${execution.sent_commands.length}/${execution.commands.length} comando(s) confirmado(s)`;
   }
   const klipper = typeof finalState.klipper_state === "string" ? finalState.klipper_state : "-";
@@ -85,13 +92,108 @@ export function formatCalibrationExecutionResult(execution: CalibrationExecution
 
 export function buildCalibrationExecutionNotes(execution: CalibrationExecutionRecord) {
   const commandText = execution.sent_commands.length ? execution.sent_commands.join(", ") : "-";
+  const consoleExcerpt = calibrationExecutionConsoleExcerpt(execution);
+  const saveConfigNote = calibrationExecutionRequiresSaveConfig(execution)
+    ? "Atenção: o Klipper pediu SAVE_CONFIG. Os valores só entram no printer.cfg depois de salvar a configuração; isso reinicia o firmware."
+    : "";
   return [
     execution.message,
     summarizeCalibrationExecutionFinalState(execution),
     `Comandos confirmados: ${commandText}`,
+    saveConfigNote,
+    consoleExcerpt.length ? "Console Moonraker:" : "",
+    consoleExcerpt.length ? consoleExcerpt.join("\n") : "",
     "Retorno final Moonraker:",
     formatCalibrationExecutionResult(execution),
   ].filter(Boolean).join("\n");
+}
+
+export function calibrationExecutionConsoleExcerpt(execution: CalibrationExecutionRecord) {
+  const consoleRecord = calibrationExecutionConsoleRecord(execution);
+  const excerpt = consoleRecord?.console_excerpt;
+  if (!Array.isArray(excerpt)) {
+    return [];
+  }
+  return excerpt.map((item) => String(item).trim()).filter(Boolean);
+}
+
+export function calibrationExecutionRequiresSaveConfig(execution: CalibrationExecutionRecord) {
+  if (calibrationExecutionConfigRemediationApplied(execution)) {
+    return false;
+  }
+  const consoleRecord = calibrationExecutionConsoleRecord(execution);
+  if (consoleRecord?.save_config_required === true) {
+    return true;
+  }
+  return calibrationExecutionConsoleExcerpt(execution).join("\n").toUpperCase().includes("SAVE_CONFIG");
+}
+
+export function calibrationExecutionConfigRemediationRecord(execution: CalibrationExecutionRecord) {
+  for (let index = execution.result.length - 1; index >= 0; index -= 1) {
+    const item = execution.result[index];
+    if (item.kind === "config_remediation") {
+      return item;
+    }
+  }
+  return null;
+}
+
+export function calibrationExecutionConfigRemediationApplied(execution: CalibrationExecutionRecord) {
+  return calibrationExecutionConfigRemediationRecord(execution)?.status === "applied";
+}
+
+export function formatSaveConfigFailureMessage(result?: OperationActionExecutionAttempt | null, fallbackError = "") {
+  const raw = [
+    result?.block_reason,
+    operationAttemptConsoleExcerpt(result).join("\n"),
+    fallbackError,
+  ].filter(Boolean).join("\n");
+  const compact = raw.trim();
+  if (!compact) {
+    return "";
+  }
+  if (compact.includes("conflicts with included value")) {
+    return [
+      firstMatchingLine(compact, "conflicts with included value") || compact,
+      "O Klipper recusou o SAVE_CONFIG porque a opção já vem de um arquivo incluído. Ajuste/remova a duplicidade no include correto ou mova essa opção para o printer.cfg antes de salvar.",
+    ].join(" ");
+  }
+  if (compact.includes("status 400")) {
+    return [
+      "Moonraker recusou o SAVE_CONFIG (HTTP 400).",
+      "A causa detalhada aparece no console do Printora; quando for conflito com arquivo incluído, corrija a opção no include correto ou salve manualmente os valores no arquivo onde ela está definida.",
+    ].join(" ");
+  }
+  return compact;
+}
+
+export function calibrationExecutionPidParameters(execution: CalibrationExecutionRecord) {
+  const params = calibrationExecutionConsoleRecord(execution)?.pid_parameters;
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return null;
+  }
+  const mapped = params as Record<string, unknown>;
+  const kp = Number(mapped.pid_Kp);
+  const ki = Number(mapped.pid_Ki);
+  const kd = Number(mapped.pid_Kd);
+  if (![kp, ki, kd].every(Number.isFinite)) {
+    return null;
+  }
+  return { kp, ki, kd };
+}
+
+export function calibrationExecutionPidHeater(execution: CalibrationExecutionRecord) {
+  const resultCommands = execution.result
+    .map((item) => item.command)
+    .filter((value): value is string => typeof value === "string");
+  const commands = [...execution.sent_commands, ...execution.commands, ...resultCommands];
+  for (const command of commands) {
+    const match = command.match(/\bPID_CALIBRATE\b.*\bHEATER=([^\s]+)/i);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
 }
 
 export function latestCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
@@ -103,6 +205,26 @@ export function latestCalibrationExecutionFinalState(execution: CalibrationExecu
     }
   }
   return null;
+}
+
+function calibrationExecutionConsoleRecord(execution: CalibrationExecutionRecord) {
+  return execution.result.find((item) => item.kind === "moonraker_console") ?? null;
+}
+
+function operationAttemptConsoleExcerpt(result?: OperationActionExecutionAttempt | null) {
+  const response = result?.payload?.moonraker_response;
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return [];
+  }
+  const excerpt = (response as Record<string, unknown>).console_excerpt;
+  if (!Array.isArray(excerpt)) {
+    return [];
+  }
+  return excerpt.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function firstMatchingLine(value: string, needle: string) {
+  return value.split(/\r?\n/).map((line) => line.trim()).find((line) => line.includes(needle)) ?? "";
 }
 
 export function formatCalibrationTestTitle(testKey: string, tests: CalibrationTestRecord[]) {

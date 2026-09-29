@@ -1,0 +1,87 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "tools": [
+      {
+        "vendor": "CycloneDX",
+        "name": "cyclonedx-gomod",
+        "version": "v1.10.0",
+        "hashes": [
+          {
+            "alg": "MD5",
+            "content": "8e6d50af5145ad314b66f3e3d75ea980"
+          },
+          {
+            "alg": "SHA-1",
+            "content": "a070265a6eb2ce82a0fd31e3bd7bea6b8a291841"
+          },
+          {
+            "alg": "SHA-256",
+            "content": "6c6e55f997ffb03b8d5935c6668c507f99e264d789d99621ce5457f1ff29101d"
+          },
+          {
+            "alg": "SHA-384",
+            "content": "10a3548ad27ee66f7ef7228aa8fcf4ca8c5c89b0cc26b97df3553a65dc07693b3e6c3fe455ba77878b3b1a77caefbfb4"
+          },
+          {
+            "alg": "SHA-512",
+            "content": "3b97bdb4b9395cdbb2b133982dba139ac8be2af1b896068e5558d5ef55a56ccd08c3d7c028eb52c9f6163de2d094419c0000108f209fd72596f801263c4eb21f"
+          }
+        ],
+        "externalReferences": [
+          {
+            "url": "https://github.com/CycloneDX/cyclonedx-gomod",
+            "type": "vcs"
+          },
+          {
+            "url": "https://cyclonedx.org",
+            "type": "website"
+          }
+        ]
+      }
+    ],
+    "component": {
+      "bom-ref": "pkg:golang/github.com/mayder/printora/agent@v0.1.48-0.20260729010001-f93d63a9ce13?type=module",
+      "type": "application",
+      "name": "github.com/mayder/printora/agent",
+      "version": "v0.1.48-0.20260729010001-f93d63a9ce13",
+      "purl": "pkg:golang/github.com/mayder/printora/agent@v0.1.48-0.20260729010001-f93d63a9ce13?goarch=arm64\u0026goos=darwin\u0026type=module",
+      "externalReferences": [
+        {
+          "url": "https://github.com/mayder/printora/agent",
+          "type": "vcs"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "pkg:golang/nhooyr.io/websocket@v1.8.17?type=module",
+      "type": "library",
+      "name": "nhooyr.io/websocket",
+      "version": "v1.8.17",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "28455e2c9914cb008a56c9cb203943ff982d6b22a9f15a02924b0708619f4fd6"
+        }
+      ],
+      "purl": "pkg:golang/nhooyr.io/websocket@v1.8.17?goarch=arm64\u0026goos=darwin\u0026type=module"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:golang/github.com/mayder/printora/agent@v0.1.48-0.20260729010001-f93d63a9ce13?type=module",
+      "dependsOn": [
+        "pkg:golang/nhooyr.io/websocket@v1.8.17?type=module"
+      ]
+    },
+    {
+      "ref": "pkg:golang/nhooyr.io/websocket@v1.8.17?type=module"
+    }
+  ]
+}

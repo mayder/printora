@@ -1,4 +1,6 @@
 import { Badge } from "../components/common";
+import { calibrationLiveEvidenceLabel, calibrationVisualState, isCalibrationVerifiedByLiveStatus } from "../utils/calibrationLiveState";
+import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type TestsScreenProps = ScreenPropsFor<
@@ -59,7 +61,6 @@ type TestsScreenProps = ScreenPropsFor<
   | "testSearch"
   | "testUsageFilter"
   | "toggleWizardCheck"
-  | "visibleCalibrationCompletedSteps"
   | "visibleCalibrationTests"
   | "visibleHiddenCalibrationTests"
   | "zOffsetFormOpen"
@@ -155,7 +156,6 @@ export function TestsScreen(props: TestsScreenProps) {
     testSearch,
     testUsageFilter,
     toggleWizardCheck,
-    visibleCalibrationCompletedSteps,
     visibleCalibrationTests,
     visibleHiddenCalibrationTests,
     zOffsetFormOpen,
@@ -168,6 +168,9 @@ export function TestsScreen(props: TestsScreenProps) {
     zOffsetWizardChecks,
     zOffsetWizardPlan,
   } = props;
+  const liveCompletedStepCount = calibrationSequencePreview.filter((step: any) =>
+    step.status === "completed" || step.status === "skipped" || isCalibrationVerifiedByLiveStatus(step.test_key, operationStatus),
+  ).length;
 
   return (
     <>
@@ -194,7 +197,7 @@ export function TestsScreen(props: TestsScreenProps) {
               <span>bloqueados pelo contexto</span>
             </div>
             <div>
-              <strong>{visibleCalibrationCompletedSteps}/{calibrationSequencePreview.length}</strong>
+              <strong>{liveCompletedStepCount}/{calibrationSequencePreview.length}</strong>
               <span>sequência tratada</span>
             </div>
             {operationStatus ? (
@@ -276,8 +279,18 @@ export function TestsScreen(props: TestsScreenProps) {
               const lastExecution = calibrationExecutions.find((execution: any) => execution.test_key === test.test_key);
               const sequenceStep = calibrationSequencePreview.find((step: any) => step.test_key === test.test_key);
               const usage = calibrationUsage(test);
+              const liveEvidence = calibrationLiveEvidenceLabel(test.test_key, operationStatus);
+              const visualState = calibrationVisualState(test, lastRun, lastExecution, operationStatus);
+              const currentExecutionCandidate = calibrationExecutionResult;
+              const currentExecution =
+                currentExecutionCandidate &&
+                currentExecutionCandidate.test_key === test.test_key &&
+                currentExecutionCandidate.status === "dispatched_unconfirmed"
+                  ? currentExecutionCandidate
+                  : null;
+              const runningExecution = currentExecution ?? (lastExecution?.status === "dispatched_unconfirmed" ? lastExecution : null);
               return (
-                <article key={test.test_key} className={`test-card ${test.risk_level}`}>
+                <article key={test.test_key} className={`test-card ${visualState}`}>
                   <div className="test-card-title">
                     <span className="test-card-sequence" title="Ordem sugerida na sequência de calibração">
                       {sequenceStep?.order ?? test.sort_order}
@@ -303,7 +316,7 @@ export function TestsScreen(props: TestsScreenProps) {
                   <div className="test-card-meta">
                     <span>Risco: {formatRiskLevel(test.risk_level)}</span>
                     <span>{formatExecutionMode(test.execution_mode)}</span>
-                    <span>{lastRun ? `Último: ${formatCalibrationResult(lastRun.result_status)}` : "Sem resultado"}</span>
+                    <span>{lastRun ? `Último: ${formatCalibrationResult(lastRun.result_status)}` : liveEvidence || "Sem resultado"}</span>
                   </div>
                   {lastExecution ? (
                     <small>
@@ -314,7 +327,7 @@ export function TestsScreen(props: TestsScreenProps) {
                     {test.gcode.length ? (
                       <button type="button" className="maintenance-done-button calibration-main-action" onClick={() => void openCalibrationExecute(test)} disabled={!selectedPrinterId || loading}>
                         <Play size={15} />
-                        Executar
+                        {runningExecution ? "Acompanhar" : "Executar"}
                       </button>
                     ) : (
                       <button type="button" className="maintenance-done-button calibration-main-action" onClick={() => openCalibrationResult(test, true)} disabled={!selectedPrinterId || loading}>
@@ -335,7 +348,7 @@ export function TestsScreen(props: TestsScreenProps) {
               );
             })}
             {visibleHiddenCalibrationTests.map((test: any) => (
-              <article key={test.test_key} className="test-card high blocked">
+              <article key={test.test_key} className="test-card high blocked hidden-test-card">
                 <div className="test-card-title">
                   <div>
                     <strong>{test.title}</strong>
@@ -495,7 +508,7 @@ export function TestsScreen(props: TestsScreenProps) {
               <div key={execution.id} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
                 <strong>{formatCalibrationTestTitle(execution.test_key, calibrationTests)}</strong>
                 <span>
-                  {formatCalibrationExecutionStatus(execution.status)} · {execution.created_at}
+                  {formatCalibrationExecutionStatus(execution.status)} · {formatDateTime(execution.created_at)}
                 </span>
                 <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
               </div>
@@ -505,7 +518,7 @@ export function TestsScreen(props: TestsScreenProps) {
               <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
                 <strong>{run.test_title}</strong>
                 <span>
-                  {formatCalibrationResult(run.result_status)} · {run.created_at}
+                  {formatCalibrationResult(run.result_status)} · {formatDateTime(run.created_at)}
                 </span>
               </div>
             ))}

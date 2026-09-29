@@ -11,8 +11,8 @@ if [[ ${#runtime_dirs[@]} -eq 0 ]]; then
   exit 0
 fi
 for dir in "${runtime_dirs[@]}"; do [[ -d "$dir" ]] || fail "runtime_dir inexistente: $dir"; done
-if [[ "${STRICT_REACT_LAYERING:-0}" != "1" ]]; then
-  log "modo legado: layering React estrito desativado; use STRICT_REACT_LAYERING=1"
+if [[ "${STRICT_REACT_LAYERING:-1}" != "1" ]]; then
+  log "layering React estrito desativado explicitamente"
   exit 0
 fi
 if find "${runtime_dirs[@]}" -type f \( -name '*.tsx' -o -name '*.jsx' \) | grep -q .; then

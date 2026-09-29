@@ -1,0 +1,10 @@
+[Unit]
+Description=Agenda retenção local de WAL após confirmação externa
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=60s
+Unit=printora-cloud-wal-retention.service
+
+[Install]
+WantedBy=timers.target

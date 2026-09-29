@@ -1,0 +1,9 @@
+{
+  "platform": "linux/arm64",
+  "provenance": "exact binary previously published as 0.1.33",
+  "sha256": "1373f97adaf22cb76bf6c9f69c9deedeeb1984659b8e01fea4d261eafd805811",
+  "signature": "y/4Y5b/YRN5IUKHMHrn7StZE41n/mvD5IVfw9pPr2lLyrUxEO+hNoVz+5E93qu2Dnp2AGyzjmGnvnoBmclVVBw==",
+  "signature_algorithm": "ed25519-sha256",
+  "signing_key_id": "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc",
+  "version": "0.1.33"
+}

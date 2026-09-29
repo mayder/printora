@@ -1,24 +1,46 @@
 {
   "name": "printora-frontend",
-  "version": "0.1.19",
+  "version": "0.1.37",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.22.0 <22.23.0",
+    "npm": ">=11.7.0 <11.8.0"
+  },
+  "packageManager": "npm@11.7.0",
   "scripts": {
+    "preinstall": "node scripts/validate-node-version.mjs",
+    "prebuild": "node scripts/validate-node-version.mjs",
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs",
+    "build:reproducible": "bash scripts/verify-reproducible-build.sh",
     "preview": "vite preview --host 0.0.0.0",
-    "test:releases": "node tests/releaseStates.test.mjs"
+    "test:node-version": "node tests/nodeVersionGate.test.mjs",
+    "test:bundle-budget": "node tests/bundleBudget.test.mjs",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:releases": "node tests/releaseStates.test.mjs",
+    "test:gcode-preview": "node tests/gcodePreview.test.mjs",
+    "test:sequential-poll": "node tests/sequentialPoll.test.mjs"
   },
   "dependencies": {
+    "@sindarius/gcodeviewer": "^3.7.17",
     "lucide-react": "^1.16.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-istanbul": "^4.1.10",
+    "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^4.1.10"
   }
 }

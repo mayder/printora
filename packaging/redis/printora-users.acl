@@ -1,0 +1,1 @@
+user default on nopass ~printora:* &printora:* +@all -@dangerous +ping +info +publish +subscribe +psubscribe +unsubscribe +punsubscribe

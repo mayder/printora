@@ -35,7 +35,11 @@ async def frontend_apple_touch_icon() -> FileResponse:
     return FileResponse(icon_path)
 
 
-@router.api_route("/api/{api_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@router.api_route(
+    "/api/{api_path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    include_in_schema=False,
+)
 async def api_fallback(api_path: str) -> None:
     raise HTTPException(status_code=404, detail="api route not found")
 

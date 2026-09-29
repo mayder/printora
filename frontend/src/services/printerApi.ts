@@ -2,6 +2,7 @@ import { apiResponse } from "./http";
 
 export const printerApi = {
   list: () => apiResponse("/api/printers"),
+  detail: (printerId: number) => apiResponse(`/api/printers/${printerId}`),
   save: (printerId: number | null, body: unknown) =>
     apiResponse(printerId ? `/api/printers/${printerId}` : "/api/printers", {
       method: printerId ? "PUT" : "POST",
@@ -25,4 +26,53 @@ export const printerApi = {
     apiResponse(`/api/printers/${printerId}/snapshots/diff?from_id=${fromSnapshotId}&to_id=${toSnapshotId}`),
   health: (printerId: number) => apiResponse(`/api/printers/${printerId}/health`),
   networkDiagnostics: (printerId: number) => apiResponse(`/api/printers/${printerId}/network-diagnostics`),
+  pairing: (printerId: number) => apiResponse(`/api/printers/${printerId}/pairing`),
+  createPairingToken: (printerId: number, ttlMinutes = 15) =>
+    apiResponse(`/api/printers/${printerId}/pairing/tokens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ttl_minutes: ttlMinutes }),
+    }),
+  revokePairingToken: (printerId: number, tokenId: number) =>
+    apiResponse(`/api/printers/${printerId}/pairing/tokens/${tokenId}/revoke`, { method: "POST" }),
+  removePairingToken: (printerId: number, tokenId: number) =>
+    apiResponse(`/api/printers/${printerId}/pairing/tokens/${tokenId}`, { method: "DELETE" }),
+  rotateAgentCredential: (printerId: number, agentId: number) =>
+    apiResponse(`/api/printers/${printerId}/agents/${agentId}/rotate`, { method: "POST" }),
+  revokeAgent: (printerId: number, agentId: number) =>
+    apiResponse(`/api/printers/${printerId}/agents/${agentId}/revoke`, { method: "POST" }),
+  removeAgent: (printerId: number, agentId: number) =>
+    apiResponse(`/api/printers/${printerId}/agents/${agentId}`, { method: "DELETE" }),
+  agentInstallPlan: (printerId: number) =>
+    apiResponse(`/api/printers/${printerId}/agent/install-plan`, { method: "POST" }),
+  agentInstallStatus: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/install-status`),
+  agentSupport: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/support`),
+  createAgentDoctorJob: (printerId: number) =>
+    apiResponse(`/api/printers/${printerId}/agent/support/doctor`, { method: "POST" }),
+  createAgentUpdateJob: (
+    printerId: number,
+    agentId: number,
+    channel: "stable" | "candidate" | "rollback" = "stable",
+  ) =>
+    apiResponse(
+      `/api/printers/${printerId}/agents/${agentId}/update-check?channel=${encodeURIComponent(channel)}`,
+      { method: "POST" },
+    ),
+  agentSupportBundle: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/support/bundle`),
+  agentUpdateManifest: () => apiResponse("/api/agent/update/manifest"),
+  remoteOperations: (printerId: number) => apiResponse(`/api/printers/${printerId}/remote/operations`),
+  remoteOperationPreflight: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/remote/operations/preflight`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  remoteOperationExecute: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/remote/operations/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  cancelRemoteOperationJob: (printerId: number, jobId: number) =>
+    apiResponse(`/api/printers/${printerId}/remote/operations/jobs/${jobId}/cancel`, { method: "POST" }),
 };

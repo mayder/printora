@@ -8,6 +8,65 @@ O objetivo é resolver uma lacuna comum em impressoras Klipper avançadas: opera
 
 O projeto deve ajudar o usuário a manter a impressora saudável sem precisar ser especialista em Linux, systemd, CAN, Git, Klipper, Moonraker e firmware ao mesmo tempo.
 
+## Conhecimento técnico e comunidade
+
+Comunidade existe para melhorar diagnóstico, reprodução de resultados,
+projetos e evidência técnica. Ela não transforma o Printora em rede social,
+marketplace, plataforma educacional ou sistema financeiro.
+
+O norte é aumentar:
+
+- impressão bem-sucedida e reproduzível;
+- resolução confirmada de problemas;
+- manutenção e disponibilidade da impressora;
+- organização de projetos, arquivos, materiais e perfis;
+- segurança, privacidade, acessibilidade e confiança.
+
+O inventário amplo em `docs/community/` é histórico de ideias. Somente
+`DEMANDAS.md` e `PACKAGE_PORTFOLIO.csv` autorizam execução.
+
+## Materiais e spools
+
+O Printora oferece inventário simples para pessoas sem Spoolman e integração
+read-only quando essa ferramenta já é usada. O Spoolman permanece canônico; o
+cloud consulta seu estado somente pelo agente pareado e pelo proxy do
+Moonraker, sem conexão direta à rede privada.
+
+Spools locais podem registrar identidade, tipo, marca, cor, lote, peso e local
+de armazenamento. Consumo confirmado e medidas físicas formam históricos
+imutáveis. Compatibilidade é orientação conservadora baseada em evidência de
+perfil, material, impressora, peso e ambiente; ausência de dado não autoriza
+afirmar que a impressão é segura ou compatível.
+
+## Digitalização 3D por fotos
+
+O Printora pode transformar múltiplas fotos de um objeto em um projeto 3D
+privado, desde que trate captura, reconstrução, qualificação da malha e revisão
+humana como etapas separadas e rastreáveis.
+
+O fluxo pertence a `Projetos de impressão > Meus projetos` e deve:
+
+- orientar ângulos, iluminação, foco, cobertura e referência de escala;
+- rejeitar captura insuficiente antes de consumir processamento caro;
+- usar fotogrametria como fonte geométrica e identificar qualquer região
+  inferida ou reparada por IA;
+- preservar fotos, engine/modelo/versão, parâmetros, medidas, checksums,
+  artefatos e decisão humana conforme retenção e privacidade;
+- qualificar manifold, watertight, escala, espessura e defeitos antes de chamar
+  uma versão de imprimível;
+- gerar snapshot imutável para download STL/3MF ou fatiamento explícito;
+- medir qualidade, erro dimensional, taxa de conclusão, tempo e custo por classe
+  de objeto em benchmark e piloto físico.
+
+Não faz parte do escopo garantir réplica metrológica, rosca, encaixe, tolerância
+ou peça de segurança apenas por fotos. A Raspberry Pi e o agente da impressora
+não executam reconstrução pesada. Publicação, cobrança, fatiamento e envio nunca
+ocorrem automaticamente por decisão de IA.
+
+A arquitetura e os gates específicos ficam em
+`docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`; a execução foi dividida em
+`PKG-141`, `PKG-153` e `PKG-154`.
+
 ## Arquitetura real do projeto
 
 - Monorepo com backend Python/FastAPI em `backend/`.
@@ -454,3 +513,53 @@ A Klipper toolkit for firmware, maintenance, diagnostics and printer operations.
 - Zero dependência de edição manual de configs para tarefas repetitivas.
 - Diagnósticos claros para usuários não especialistas.
 - Relatórios úteis para comunidade e suporte.
+
+## Arquitetura Alvo Plurianual
+
+A evolução técnica oficial está em
+`docs/architecture/EVOLUCAO_ARQUITETURAL.md` e nos pacotes `PKG-86` a `PKG-95`.
+
+O produto evolui em quatro etapas:
+
+1. qualificação do host, releases imutáveis, monólito modular, contratos,
+   observabilidade e deploy blue/green;
+2. PostgreSQL cloud, Redis recomponível, outbox/fila durável, workers, objetos
+   S3-compatible, realtime distribuído e busca reconstruível;
+3. múltiplas instâncias, resiliência e recuperação;
+4. analytics operacional ou ML isolado somente com hipótese aprovada.
+
+Todos os componentes devem executar no servidor cloud atual. Kubernetes,
+segundo host e serviços gerenciados não são requisitos. A arquitetura no mesmo
+host protege contra falha de processo e deploy, mas não promete sobrevivência à
+perda física do servidor.
+
+Após cada cutover, existe apenas um caminho canônico por perfil. O cloud não
+mantém fallback SQLite; o SQLite local permanece somente como adapter local
+suportado e isolado. Bridges, flags, bancos, arquivos, dependências,
+configurações, testes e documentação aposentados são removidos antes do
+fechamento, respeitando confirmação explícita e prova de integridade/restauração.
+
+## Confiança Contínua Pós-Arquitetura
+
+A arquitetura base encerrada nos pacotes `PKG-86` a `PKG-95` é seguida pelos
+pacotes `PKG-96` a `PKG-99`:
+
+1. agente versionado e distribuído de forma imutável;
+2. toolchain, cobertura, E2E, fuzzing, mutation testing e pentest;
+3. homologação com impressora/agente reais e soak de 72 horas;
+4. RPO físico reduzido e recuperação de desastre continuamente comprovada.
+
+Esses pacotes elevam a confiança sem bloquear a evolução funcional futura e sem
+prometer ausência absoluta de defeitos.
+
+## Gerenciador Completo De Arquivos G-code
+
+O `PKG-100` consolida a aba `Arquivos G-code` como gerenciador operacional da
+impressora, com listagem paginada, pastas, upload, metadados, preview 3D,
+download, fila e ações protegidas. A cloud nunca acessa o Moonraker diretamente:
+todo acesso passa pelo agente pareado e respeita permissão, estado real da
+impressora, confirmação reforçada, limite de arquivo e auditoria sanitizada.
+
+O fluxo deve permanecer leve na Raspberry. A listagem inicial não pode baixar
+todos os G-codes, thumbnails ou metadados individualmente; enriquecimento e
+conteúdo completo são carregados somente para a página ou arquivo solicitado.

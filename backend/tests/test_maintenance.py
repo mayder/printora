@@ -400,10 +400,10 @@ def test_complete_print_hours_task_saves_baseline_when_reading_is_available(tmp_
     get_settings.cache_clear()
     try:
         initialize_database(tmp_path / "printora.db")
-        async def fake_read_print_hours(_moonraker_url: str) -> float:
+        async def fake_read_print_hours(_settings, _printer) -> float:
             return 42.5
 
-        monkeypatch.setattr("app.main._read_printer_print_hours", fake_read_print_hours)
+        monkeypatch.setattr("app.routes.maintenance._read_printer_print_hours_via_agent", fake_read_print_hours)
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -441,10 +441,10 @@ def test_complete_print_hours_task_offline_is_blocked(tmp_path, monkeypatch) -> 
     get_settings.cache_clear()
     try:
         initialize_database(tmp_path / "printora.db")
-        async def fake_read_print_hours(_moonraker_url: str) -> None:
+        async def fake_read_print_hours(_settings, _printer) -> None:
             return None
 
-        monkeypatch.setattr("app.main._read_printer_print_hours", fake_read_print_hours)
+        monkeypatch.setattr("app.routes.maintenance._read_printer_print_hours_via_agent", fake_read_print_hours)
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -482,10 +482,10 @@ def test_print_hours_status_endpoint_reports_available_total(tmp_path, monkeypat
     get_settings.cache_clear()
     try:
         initialize_database(tmp_path / "printora.db")
-        async def fake_read_print_hours(_moonraker_url: str) -> float:
+        async def fake_read_print_hours(_settings, _printer) -> float:
             return 12.25
 
-        monkeypatch.setattr("app.main._read_printer_print_hours", fake_read_print_hours)
+        monkeypatch.setattr("app.routes.support._read_printer_print_hours_via_agent", fake_read_print_hours)
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",

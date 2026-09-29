@@ -117,13 +117,15 @@ export type MaintenanceTaskAlert = {
 export type AlertCenterItem = {
   id: string;
   source: string;
+  printerId?: number;
+  printerName?: string;
   title: string;
   detail: string;
   action: string;
   severity: "blocker" | "warning" | "info";
   reason: string;
   actionLabel: string;
-  actionKind: "revalidate" | "open_updates" | "refresh_update" | "run_update" | "open_monitoring" | "open_maintenance";
+  actionKind: "revalidate" | "open_updates" | "refresh_update" | "run_update" | "open_monitoring" | "open_maintenance" | "open_printer";
   target?: string;
 };
 
@@ -148,6 +150,7 @@ export function buildAlertCenterItems({
     .filter((item) => !printerOffline || isPrinterReadProblem(item.key))
     .forEach((item) => {
       const printoraReadProblem = isPrinterReadProblem(item.key);
+      const klipperRuntimeAlert = item.key.startsWith("klipper_runtime_");
       items.push({
         id: `health-${item.key}`,
         source: "Health Check",
@@ -156,8 +159,8 @@ export function buildAlertCenterItems({
         action: printerOffline && printoraReadProblem ? "Ligue a impressora e revalide a conexão." : healthAlertAction(item),
         severity: item.severity === "blocker" && !printoraReadProblem ? "blocker" : "warning",
         reason: printerOffline && printoraReadProblem ? "A impressora não está acessível agora; alertas que dependem dela ligada ficam ocultos." : healthAlertReason(item),
-        actionLabel: printoraReadProblem ? "Revalidar conexão" : "Revalidar agora",
-        actionKind: "revalidate",
+        actionLabel: printoraReadProblem ? "Revalidar conexão" : klipperRuntimeAlert ? "Abrir monitoramento" : "Revalidar agora",
+        actionKind: klipperRuntimeAlert ? "open_monitoring" : "revalidate",
       });
     });
 
@@ -265,6 +268,11 @@ function healthAlertAction(item: HealthItem): string {
 }
 
 function healthAlertReason(item: HealthItem): string {
+  if (item.key.startsWith("klipper_runtime_")) {
+    return item.severity === "blocker"
+      ? "Erro crítico recente do Klipper; a operação pode estar insegura."
+      : "Warning recente do Klipper que exige correção.";
+  }
   if (item.key === "api_latency") {
     return `A resposta levou ${item.detail}. Isso mede a ida e volta entre o Printora e o Moonraker pela rede local; como eles podem estar em dispositivos diferentes, alguma latência é esperada.`;
   }

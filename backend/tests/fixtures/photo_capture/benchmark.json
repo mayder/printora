@@ -1,0 +1,33 @@
+{
+  "schema": "printora.photo-capture-benchmark/v1",
+  "seed": 141001,
+  "software_cases": [
+    {
+      "id": "textured-matte",
+      "expected": "supported",
+      "checks": ["three_height_bands", "focus", "exposure", "resolution", "scale"]
+    },
+    {
+      "id": "mechanical-with-known-measurement",
+      "expected": "measurement_required",
+      "checks": ["known_measurement", "uncertainty", "no_dimensional_guarantee"]
+    },
+    {
+      "id": "transparent",
+      "expected": "preparation_warning",
+      "checks": ["limitations_explained", "no_false_approval"]
+    },
+    {
+      "id": "reflective",
+      "expected": "preparation_warning",
+      "checks": ["lighting_guidance", "no_false_approval"]
+    },
+    {
+      "id": "thin-or-low-texture",
+      "expected": "preparation_warning",
+      "checks": ["coverage_guidance", "no_false_approval"]
+    }
+  ],
+  "privacy_cases": ["jpeg_exif", "png_text", "wrong_signature", "oversized_pixels", "cross_owner"],
+  "note": "Resultados geometricos e dimensionais pertencem aos pacotes posteriores; este benchmark valida somente captura e elegibilidade."
+}

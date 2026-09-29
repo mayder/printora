@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from fastapi import Depends
+
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import runtime_status_payload, status_payload
+from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/printers/{printer_id}/reports/sanitized")
@@ -15,13 +20,14 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-        update_status = await client.update_status()
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_moonraker_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        printer_info, server_info, system_info, proc_stats, update_status = status_payload(job.result)
+        runtime_alerts, runtime_alerts_state = runtime_status_payload(job.result)
         snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
         latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
         update_status = apply_update_alert_silences(
@@ -39,10 +45,12 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
                 proc_stats=proc_stats,
                 snapshots=snapshots,
                 latest_diff=latest_diff,
-                source=printer.moonraker_url,
+                runtime_alerts=runtime_alerts,
+                runtime_alerts_state=runtime_alerts_state,
+                source="agent",
             ),
         }
-    except httpx.HTTPError as exc:
+    except HTTPException as exc:
         snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
         latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
@@ -65,14 +73,14 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
                     latest_diff=latest_diff,
                     data_state="last_snapshot",
                     source=f"snapshot:{latest_snapshot.id}",
-                    error=str(exc),
+                    error=str(exc.detail),
                 ),
             }
         else:
             health_payload = {
                 "printer_id": printer.id,
-                "moonraker_url": printer.moonraker_url,
-                **build_unreachable_health(printer.moonraker_url, str(exc)),
+                "moonraker_url": "agent",
+                **build_unreachable_health("agent", str(exc.detail)),
             }
 
     backup_runs = backup_repository.list_runs(printer.id, limit=5)

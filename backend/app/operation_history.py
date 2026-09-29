@@ -104,6 +104,19 @@ class OperationActionHistoryRepository:
             ).fetchone()
         return _record_from_row(row) if row else None
 
+    def consume_preview(self, preview_id: int, printer_id: int) -> bool:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                UPDATE operation_action_previews
+                SET consumed_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND printer_id = ? AND consumed_at IS NULL
+                RETURNING id
+                """,
+                (preview_id, printer_id),
+            ).fetchone()
+        return row is not None
+
     def create_execution_attempt(
         self,
         *,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 from dataclasses import dataclass
@@ -9,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.auth import scoped_where_clause
 from app.database import connect_database
 
 
@@ -159,6 +159,8 @@ class SetupSshRunRecord(BaseModel):
 @dataclass(frozen=True)
 class SetupSshRunRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def create_preflight(self, target: SetupSshTarget, response: SetupSshPreflightResponse) -> int:
         return self._create_run(
@@ -192,15 +194,17 @@ class SetupSshRunRepository:
 
     def list_runs(self, limit: int = 20) -> list[SetupSshRunRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = _scope_sql("setup_ssh_runs", self.user_id, self.organization_ids)
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, run_type, status, safe_mode, target_host, target_port, target_user,
                        auth_method, summary_json, plan_json, error_message, created_at
                 FROM setup_ssh_runs
+                {where_clause}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
 
@@ -220,9 +224,9 @@ class SetupSshRunRepository:
                 """
                 INSERT INTO setup_ssh_runs (
                     run_type, status, safe_mode, target_host, target_port, target_user,
-                    auth_method, summary_json, plan_json, error_message
+                    auth_method, summary_json, plan_json, error_message, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_type,
@@ -235,52 +239,43 @@ class SetupSshRunRepository:
                     json.dumps(summary, ensure_ascii=False),
                     json.dumps(plan, ensure_ascii=False) if plan is not None else None,
                     error,
+                    self.user_id,
                 ),
             )
             return int(cursor.lastrowid)
 
 
 async def run_setup_ssh_preflight(target: SetupSshTarget) -> SetupSshPreflightResponse:
-    command = _ssh_command(target)
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    except FileNotFoundError:
-        return _connection_error(target, "Comando ssh não encontrado no host do Printora.")
-    except OSError as exc:
-        return _connection_error(target, str(exc))
+    if target.auth_method == "agent":
+        from app.agent_host import run_host_script_via_agent
 
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(READ_ONLY_SETUP_SCRIPT.encode()),
-            timeout=target.timeout_seconds,
+        result = await run_host_script_via_agent(
+            target,
+            READ_ONLY_SETUP_SCRIPT,
+            timeout_seconds=target.timeout_seconds,
+            kind="setup_ssh_preflight",
         )
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        return _connection_error(target, f"Timeout de SSH após {target.timeout_seconds:.0f}s.")
+        stdout = str(result.get("stdout") or "")
+        stderr = str(result.get("stderr") or "")
+        exit_code = result.get("exit_code")
+        error = str(result.get("error") or "")
+        sections = split_sections(stdout)
+        checks = build_setup_checks(int(exit_code or 1), sections, stderr or error)
+        status = _overall_status(checks)
+        connected = exit_code == 0 and not error
+        return SetupSshPreflightResponse(
+            safe_mode="agent_read_only_preflight",
+            connected=connected,
+            status="error" if not connected else status,
+            target=_target_label(target),
+            summary=_preflight_summary(connected, status, checks),
+            checks=checks,
+            sections={name: _trim_section(value) for name, value in sections.items()},
+            redacted_target=_redacted_target(target),
+            error=(error or stderr.strip())[:500] if not connected and (error or stderr.strip()) else None,
+        )
 
-    stdout = stdout_bytes.decode(errors="replace")
-    stderr = stderr_bytes.decode(errors="replace")
-    sections = split_sections(stdout)
-    checks = build_setup_checks(process.returncode or 0, sections, stderr)
-    status = _overall_status(checks)
-    connected = (process.returncode or 0) == 0
-    return SetupSshPreflightResponse(
-        safe_mode="ssh_read_only_preflight",
-        connected=connected,
-        status="error" if not connected else status,
-        target=_target_label(target),
-        summary=_preflight_summary(connected, status, checks),
-        checks=checks,
-        sections={name: _trim_section(value) for name, value in sections.items()},
-        redacted_target=_redacted_target(target),
-        error=stderr.strip()[:500] if not connected and stderr.strip() else None,
-    )
+    return _connection_error(target, "Acesso SSH direto pela API foi desativado para cloud. Use auth_method=agent com agente pareado.")
 
 
 def build_setup_plan(preflight: SetupSshPreflightResponse) -> SetupSshPlanResponse:
@@ -504,28 +499,6 @@ def build_setup_checks(exit_code: int, sections: dict[str, str], stderr: str = "
     ]
 
 
-def _ssh_command(target: SetupSshTarget) -> list[str]:
-    command = [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        f"ConnectTimeout={max(1, int(target.timeout_seconds))}",
-        "-o",
-        "StrictHostKeyChecking=no",
-        "-o",
-        "UserKnownHostsFile=/dev/null",
-        "-o",
-        "LogLevel=ERROR",
-        "-p",
-        str(target.port),
-    ]
-    if target.auth_method == "key_path" and target.key_path:
-        command.extend(["-i", str(Path(target.key_path).expanduser())])
-    command.extend([f"{target.username}@{target.host}", "bash -s"])
-    return command
-
-
 def _connection_error(target: SetupSshTarget, detail: str) -> SetupSshPreflightResponse:
     check = SetupCheckItem(key="ssh", label="Conexão SSH", status="error", detail=detail)
     return SetupSshPreflightResponse(
@@ -579,6 +552,12 @@ def _run_from_row(row) -> SetupSshRunRecord:
         error_message=row["error_message"],
         created_at=row["created_at"],
     )
+
+
+def _scope_sql(table_alias: str, user_id: int | None, organization_ids: tuple[int, ...]) -> tuple[str, tuple[object, ...]]:
+    if user_id is None:
+        return "", ()
+    return scoped_where_clause(table_alias, user_id, organization_ids)
 
 
 def _parse_tool_status(section: str) -> dict[str, str]:

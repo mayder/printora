@@ -53,6 +53,12 @@
   background: var(--surface-3);
 }
 
+.setup-recipe-step > div:last-child,
+.setup-recipe-title-row,
+.setup-recipe-title-row strong {
+  min-width: 0;
+}
+
 .setup-recipe-done {
   border-color: rgba(34, 197, 94, 0.5);
 }
@@ -92,7 +98,12 @@
   display: block;
 }
 
+.setup-recipe-title-row strong {
+  overflow-wrap: anywhere;
+}
+
 .setup-recipe-title-row span {
+  flex: 0 0 auto;
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
@@ -524,5 +535,29 @@
   .setup-connection-panel .setup-form-grid label:nth-child(5),
   .setup-connection-panel .setup-form-grid label:nth-child(6) {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .setup-recipe-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .setup-recipe-title-row strong,
+  .setup-recipe-title-row span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .setup-recipe-title-row span,
+  .setup-recipe-link {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 420px) {
+  .setup-recipe-title-row {
+    flex-wrap: wrap;
   }
 }

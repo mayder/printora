@@ -199,6 +199,25 @@ class FirmwareBoardRepository:
             plan["message"] = f"Build local falhou: {exc}"
         return self._insert_build_run(board, status, plan)
 
+    def create_agent_build_run(
+        self,
+        board_id: int,
+        payload: FirmwareBuildExecuteCreate,
+        *,
+        status: str,
+        message: str,
+    ) -> FirmwareBuildRunRecord:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        plan = _build_dry_run_plan(board, preset, payload)
+        _mark_local_build_plan(plan, board, preset, payload)
+        plan["message"] = message
+        return self._insert_build_run(board, status, plan)
+
     def _insert_build_run(
         self,
         board: FirmwareBoardRecord,

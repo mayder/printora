@@ -11,6 +11,13 @@ Ordem de leitura obrigatória:
 3. `GOVERNANCA.md`
 4. `DEMANDAS.md`
 
+`DEMANDAS.md` contém somente o backlog executável ativo. Pacotes consolidados
+ficam preservados integralmente em `DEMANDAS_CONSOLIDADAS_PKG_01_100.md`; o
+arquivo histórico é fonte de consulta e não recebe novos lotes. O estado dos
+IDs `PKG-101` a `PKG-155` fica em
+`docs/community/PACKAGE_PORTFOLIO.csv`; inventários `COM/CAP/SCR` são fontes de
+ideias, não cobertura obrigatória do backlog.
+
 ## Estratégia Técnica Inicial
 
 O projeto deve começar como documentação e especificação operacional. Código só deve ser criado depois que os fluxos críticos estiverem descritos e priorizados.
@@ -27,6 +34,14 @@ update: Moonraker Update Manager
 ui entry: Mainsail custom navigation
 ```
 
+Este bloco registra a arquitetura inicial/local que originou o produto. A
+arquitetura cloud plurianual oficial é
+`docs/architecture/EVOLUCAO_ARQUITETURAL.md`: monólito modular, blue/green,
+PostgreSQL, Redis recomponível, fila/outbox durável, storage S3-compatible e
+workers no servidor atual. Depois do cutover, SQLite não permanece como fallback
+cloud; o perfil local/offline pode manter adapter SQLite próprio, isolado por
+testes de arquitetura e sem import/configuração cruzada com o cloud.
+
 ## Regras De Desenvolvimento
 
 - Não criar automações destrutivas sem dry-run.
@@ -40,6 +55,11 @@ ui entry: Mainsail custom navigation
 ## Branch, Commit E PR
 
 - Branch principal: `main`.
+- Usar somente o checkout/worktree principal do projeto.
+- Não criar worktree, clone auxiliar ou qualquer checkout paralelo sem autorização explícita do owner.
+- Antes de criar branch no checkout principal, perguntar ao owner; enquanto não houver autorização, continuar na branch atual.
+- Saneamento de checkout auxiliar só termina depois de provar que alterações não commitadas, arquivos novos relevantes, documentação, evidências e commits exclusivos foram consolidados na branch principal.
+- Remover worktree não autoriza apagar a branch associada; clones independentes exigem inventário e confirmação específica antes de qualquer remoção.
 - Se a branch atual for `main` ou `hml`, pedir autorização explícita antes de editar, commitar, publicar ou abrir PR.
 - Branches de trabalho devem usar prefixo `mayder/`.
 - Commits devem ser pequenos e lógicos.
@@ -112,7 +132,7 @@ No Printora:
 
 Cada módulo deve ter responsabilidade clara:
 
-- `backend`: API, regras de aplicação, integração Moonraker/Klipper, SQLite, relatórios, backups, auditoria, firmware e updates.
+- `backend`: API, regras de aplicação, integração Moonraker/Klipper, persistência canônica vigente, relatórios, backups, auditoria, firmware e updates.
 - `frontend`: UI, estados de tela, navegação, acessibilidade, feedback visual e consumo explícito da API.
 - `scripts`: operação local, bootstrap, run e validações do modelo.
 
@@ -137,6 +157,15 @@ Módulo não deve importar detalhe interno de outro módulo sem contrato explíc
 - Durante lotes, rodar teste raso e direcionado.
 - No fechamento do pacote, rodar validação completa, revisar regressões e fazer commit.
 - O commit de fechamento não exige push.
+- Pacote ativo depende somente de IDs concluídos ou ativos anteriores na ordem
+  topológica explícita; numeração não cria dependência automática.
+- `docs/community/PACKAGE_EXECUTION_STANDARD.md` é bloqueante para todo pacote
+  ativo; `PACKAGE_PORTFOLIO.csv` registra a decisão de cada ID e
+  `PACKAGE_ARCHITECTURE.csv` fixa owner, colaboradores, área, risco e
+  dependências técnicas.
+- `scripts/validate-demand-package-dependencies.py` bloqueia pacote ativo
+  ausente, destino de fusão inválido, ownership inválido, dependência
+  documental divergente e dependência ativa posterior.
 
 ### Bug e melhoria simples
 
@@ -164,6 +193,22 @@ O `check.sh` da raiz chama os validadores do modelo e checks leves. Checks pesad
 ```bash
 RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
 ```
+
+### Limite De Tamanho
+
+O limite de linhas é bloqueante para código dentro de `backend/app`,
+`frontend/src` e `agent`. Documentos de governança e backlog, especialmente
+`DEMANDAS.md`, não possuem limite de linhas: completude, rastreabilidade e
+capacidade de execução em outra janela têm prioridade sobre compactação
+artificial do documento.
+
+### Confiança Operacional Pós-Arquitetura
+
+Os pacotes `PKG-96` a `PKG-99` são executados depois da arquitetura base e
+fecham, em ordem, distribuição do agente, gates de qualidade, homologação
+física/soak e recuperação física. Nenhum deles pode declarar ausência absoluta
+de defeitos; o aceite deve descrever o escopo efetivamente exercitado e os
+riscos residuais.
 
 ### Resposta final curta
 

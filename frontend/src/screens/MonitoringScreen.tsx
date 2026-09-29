@@ -11,6 +11,7 @@ type MonitoringScreenProps = ScreenPropsFor<
   | "loading"
   | "executeOperationAction"
   | "operationStatus"
+  | "operationStatusLoading"
   | "operationActionHistory"
   | "operationActionParameters"
   | "operationActionPreview"
@@ -22,6 +23,7 @@ type MonitoringScreenProps = ScreenPropsFor<
   | "selectedPrinter"
   | "selectedPrinterId"
   | "setOperationExecutionPhrase"
+  | "setPrinterDetailTab"
   | "updateOperationActionParameter"
   | "validateOperationExecutionGate"
 >;
@@ -37,6 +39,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
     loading,
     executeOperationAction,
     operationStatus,
+    operationStatusLoading,
     operationActionHistory,
     operationActionParameters,
     operationActionPreview,
@@ -48,6 +51,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
     selectedPrinter,
     selectedPrinterId,
     setOperationExecutionPhrase,
+    setPrinterDetailTab,
     updateOperationActionParameter,
     validateOperationExecutionGate,
   } = props;
@@ -57,6 +61,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
         <MonitoringDashboard
           selectedPrinterName={selectedPrinter?.name ?? "Impressora não selecionada"}
           operationStatus={operationStatus}
+          operationStatusLoading={operationStatusLoading}
           operationActionHistory={operationActionHistory}
           operationActionParameters={operationActionParameters}
           operationActionPreview={operationActionPreview}
@@ -76,6 +81,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
           onActionParameterChange={updateOperationActionParameter}
           onExecutionPhraseChange={setOperationExecutionPhrase}
           onValidateExecutionGate={validateOperationExecutionGate}
+          onOpenGcodeFiles={() => setPrinterDetailTab("gcode-files")}
         />
 
 

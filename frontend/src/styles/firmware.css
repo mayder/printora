@@ -20,12 +20,29 @@
   width: 100%;
 }
 
+.firmware-status-grid .badge {
+  justify-self: stretch;
+  min-width: 0;
+  width: 100%;
+}
+
+.firmware-status-grid + .firmware-state-banner,
+.firmware-state-banner + .firmware-state-banner {
+  margin-top: 18px;
+}
+
 .firmware-focus-grid,
 .firmware-result-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   gap: 14px;
   min-width: 0;
+}
+
+.firmware-state-banner + .firmware-focus-grid,
+.firmware-focus-grid + .firmware-board-section,
+.firmware-board-section + .firmware-control-panel {
+  margin-top: 18px;
 }
 
 .firmware-status-grid > *,
@@ -279,11 +296,12 @@
 
 .firmware-state-banner div {
   display: grid;
-  gap: 2px;
+  gap: 6px;
 }
 
 .firmware-state-banner span {
   color: var(--muted);
+  line-height: 1.45;
 }
 
 .firmware-empty-state {
@@ -292,6 +310,7 @@
   border-radius: 8px;
   background: var(--warning-soft);
   padding: 12px;
+  margin-block: 14px;
 }
 
 .firmware-board-form {
@@ -446,4 +465,49 @@
 
 .firmware-check.blocked {
   background: var(--warning-soft);
+}
+
+@media (max-width: 1240px) {
+  .firmware-workspace,
+  .firmware-focus-grid,
+  .firmware-result-grid,
+  .firmware-board-section,
+  .firmware-control-panel,
+  .firmware-card,
+  .firmware-board-card,
+  .firmware-result-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .firmware-focus-grid,
+  .firmware-result-grid,
+  .firmware-board-card,
+  .firmware-board-form,
+  .firmware-board-row,
+  .firmware-build-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .firmware-card-heading,
+  .firmware-section-heading,
+  .firmware-board-title,
+  .firmware-component-row,
+  .firmware-reference-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .firmware-card-heading > .status-pill,
+  .firmware-board-title .status-pill {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .firmware-status-grid,
+  .firmware-board-form.guided,
+  .firmware-build-controls.compact {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

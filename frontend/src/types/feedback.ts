@@ -5,6 +5,8 @@ export type ToastRecord = {
   tone: FeedbackTone;
   title: string;
   detail?: string;
+  actionLabel?: string;
+  onAction?: () => void | Promise<void>;
 };
 
 export type ConfirmDialogState = {
@@ -30,4 +32,6 @@ export type ShowToastOptions = {
   tone?: FeedbackTone;
   title: string;
   detail?: string;
+  actionLabel?: string;
+  onAction?: () => void | Promise<void>;
 };

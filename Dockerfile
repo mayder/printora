@@ -1,7 +1,10 @@
-FROM node:22-bookworm AS frontend-build
+FROM node:22.22.0-bookworm AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+COPY frontend/.npmrc ./
+COPY frontend/scripts/validate-node-version.mjs ./scripts/
+RUN npm install --global npm@11.7.0 \
+    && npm ci
 COPY frontend/ ./
 RUN npm run build
 

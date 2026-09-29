@@ -1,0 +1,35 @@
+[Unit]
+Description=Printora Cloud slot %i
+After=network-online.target
+After=redis-printora.service minio-printora.service
+Wants=network-online.target redis-printora.service minio-printora.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/print3dmaker.xyz/slots/%i/backend
+EnvironmentFile=/var/www/print3dmaker.xyz/shared/printora-cloud.env
+EnvironmentFile=/etc/printora-cloud/postgresql.env
+EnvironmentFile=/etc/printora-cloud/redis.env
+EnvironmentFile=/etc/printora-cloud/object-storage.env
+EnvironmentFile=/var/www/print3dmaker.xyz/shared/slots/%i.env
+Environment=PRINTORA_FRONTEND_DIST_DIR=/var/www/print3dmaker.xyz/slots/%i/frontend/dist
+ExecStart=/var/www/print3dmaker.xyz/slots/%i/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port ${PRINTORA_PORT} --loop asyncio --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=3
+TimeoutStopSec=45
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/print3dmaker.xyz/shared/data /var/www/print3dmaker.xyz/shared/logs
+LimitNOFILE=65536
+MemoryHigh=768M
+MemoryMax=1G
+CPUQuota=150%
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

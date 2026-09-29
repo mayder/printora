@@ -1,0 +1,10 @@
+[Unit]
+Description=Printora Cloud durable workers
+Wants=printora-cloud-worker@outbox.service
+Wants=printora-cloud-worker@critical.service
+Wants=printora-cloud-worker@default.service
+Wants=printora-cloud-worker@bulk.service
+After=postgresql@16-printora.service
+
+[Install]
+WantedBy=multi-user.target

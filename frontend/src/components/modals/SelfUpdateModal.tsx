@@ -104,7 +104,7 @@ export function SelfUpdateModal(props: SelfUpdateModalProps) {
               ) : (
                 <div className="action-result warning">
                   <strong>Ambiente sem apply automático</strong>
-                  <span>Este ambiente ainda não tem aplicação real de update habilitada pelo backend.</span>
+                  <span>A atualização automática ainda não está habilitada nesta instalação.</span>
                 </div>
               )}
               {selfUpdateConnectionLost ? (
@@ -120,9 +120,8 @@ export function SelfUpdateModal(props: SelfUpdateModalProps) {
                 </div>
               ) : null}
               <div className="self-update-backups">
-                <strong>Backups previstos</strong>
-                <span>Banco: {selfUpdatePlan.run.backup_db_path ?? "~/.local/share/printora/backups/printora.db.before-update-&lt;timestamp&gt;"}</span>
-                <span>Projeto anterior: {selfUpdatePlan.run.previous_project_path ?? "~/Printora.previous-update-&lt;timestamp&gt;"}</span>
+                <strong>Proteção antes da atualização</strong>
+                <span>Os dados e a versão anterior serão preservados para recuperação.</span>
               </div>
               {selfUpdatePlan.run.status !== "planned" && (
                 <>

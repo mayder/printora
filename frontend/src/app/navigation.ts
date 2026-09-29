@@ -1,9 +1,17 @@
-import { Activity, FileText, Home, Info, Network, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Accessibility as AccessibilityIcon, Activity, Boxes, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, ListChecks, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
   | "overview"
+  | "onboarding"
   | "printers"
+  | "printer-detail"
+  | "agents"
+  | "agent-detail"
+  | "projects"
+  | "materials"
+  | "social"
+  | "catalog"
   | "setup"
   | "monitoring"
   | "updates"
@@ -12,29 +20,116 @@ export type AppSection =
   | "maintenance"
   | "reports"
   | "settings"
+  | "finance"
+  | "manufacturing"
+  | "data-intelligence"
+  | "design-system"
+  | "accessibility"
+  | "account"
   | "about"
   | "license";
 
-export const appSections: Array<{
+type AppSectionDefinition = {
   key: AppSection;
   icon: LucideIcon;
   label: string;
   detail: string;
   purpose: string;
-}> = [
+};
+
+export const accessibilitySection: AppSectionDefinition = {
+  key: "accessibility",
+  icon: AccessibilityIcon,
+  label: "Acessibilidade",
+  detail: "Preferências sincronizadas e alternativas equivalentes.",
+  purpose: "Ajuste visual, movimento, navegação, mídia, compreensão e alternativas 3D em todos os dispositivos.",
+};
+
+export const appSections: AppSectionDefinition[] = [
+  accessibilitySection,
+  {
+    key: "design-system",
+    icon: Palette,
+    label: "Design system",
+    detail: "Tokens, componentes, estados e laboratório visual.",
+    purpose: "Consulte e experimente padrões visuais compartilhados sem alterar dados ou comandos operacionais.",
+  },
+  {
+    key: "data-intelligence",
+    icon: BrainCircuit,
+    label: "Dados e inteligência",
+    detail: "Analytics, moderação e modelos isolados do OLTP.",
+    purpose: "Acompanhe eventos sanitizados, impacto, revisão humana, lineage, retenção e fallback dos modelos.",
+  },
   {
     key: "overview",
     icon: Home,
     label: "Visão geral",
-    detail: "Dashboard geral da frota e da impressora selecionada.",
-    purpose: "Use esta tela para saber rapidamente se há bloqueios, alertas ou pendências antes de trabalhar na impressora.",
+    detail: "Dashboard global da frota, agentes, alertas e ações pendentes.",
+    purpose: "Use esta tela para acompanhar saúde, manutenção, updates, calibração, agentes e impressoras da frota inteira.",
+  },
+  {
+    key: "onboarding",
+    icon: ListChecks,
+    label: "Primeiros passos",
+    detail: "Guia para conectar a primeira impressora e validar o primeiro projeto.",
+    purpose: "Siga etapas simples e verificáveis para preparar impressora, agente, projeto e preflight sem iniciar uma impressão por engano.",
   },
   {
     key: "printers",
     icon: Printer,
     label: "Impressoras",
-    detail: "Cadastro, descoberta e seleção da impressora ativa.",
-    purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
+    detail: "Cadastro, busca e acesso ao detalhe de cada impressora.",
+    purpose: "Gerencie a frota e abra uma impressora para operar, diagnosticar, atualizar, calibrar ou manter.",
+  },
+  {
+    key: "printer-detail",
+    icon: Printer,
+    label: "Detalhe da impressora",
+    detail: "Contexto operacional de uma impressora.",
+    purpose: "Operação, atualização, calibração, firmware, manutenção, diagnóstico, backups e agentes ficam dentro da impressora selecionada.",
+  },
+  {
+    key: "agents",
+    icon: Radio,
+    label: "Agentes",
+    detail: "Lista de agentes, detalhe, instalação por token e saúde.",
+    purpose: "Gerencie os agentes da frota e abra um agente para diagnosticar saúde, fila, versão, logs sanitizados e vínculo.",
+  },
+  {
+    key: "agent-detail",
+    icon: Radio,
+    label: "Detalhe do agente",
+    detail: "Diagnóstico e vínculo de um agente.",
+    purpose: "Veja saúde, fila, doctor remoto, suporte e credencial do agente dentro do registro selecionado.",
+  },
+  {
+    key: "projects",
+    icon: FileArchive,
+    label: "Projetos de impressão",
+    detail: "Biblioteca central de projetos, arquivos, referências externas e snapshots.",
+    purpose: "Explore projetos imprimíveis, salve referências e inicie fluxos de fatiamento a partir do projeto central.",
+  },
+  {
+    key: "materials",
+    icon: Boxes,
+    label: "Materiais",
+    detail: "Spools, peso disponível, compatibilidade e histórico de uso.",
+    purpose: "Cadastre materiais, sincronize o Spoolman e confira peso, armazenamento e compatibilidade antes de imprimir.",
+  },
+  {
+    key: "social",
+    icon: Users,
+    label: "Social",
+    detail: "Descoberta pública de makers, impressoras e comunidades.",
+    purpose: "Descubra makers, impressoras públicas e comunidades técnicas sem conceder acesso operacional.",
+  },
+  {
+    key: "catalog",
+    icon: Database,
+    label: "Catálogo",
+    detail: "Curadoria administrativa de impressoras e componentes.",
+    purpose: "Filtre, revise e cure fabricantes, modelos, variações técnicas, componentes e estado de confiança do catálogo mestre.",
   },
   {
     key: "setup",
@@ -86,11 +181,32 @@ export const appSections: Array<{
     purpose: "Gere diagnósticos compartilháveis e compare snapshots sem expor dados sensíveis.",
   },
   {
+    key: "finance",
+    icon: Landmark,
+    label: "Finanças",
+    detail: "Pedidos, ledger, reconciliação, disputas e repasses.",
+    purpose: "Acompanhe áreas financeiras segregadas, controles de prontidão e registros auditáveis.",
+  },
+  {
+    key: "manufacturing",
+    icon: Factory,
+    label: "Fabricação",
+    detail: "Ordens, qualidade, logística e recall.",
+    purpose: "Acompanhe a cadeia produtiva sem acionar diretamente impressoras ou expor dados de entrega.",
+  },
+  {
     key: "settings",
     icon: Settings,
-    label: "Configurações",
-    detail: "Preferências, integrações e contexto da impressora ativa.",
-    purpose: "Versão instalada, releases e updates do próprio Printora.",
+    label: "Administração",
+    detail: "Configuração global, versão publicada e status da plataforma.",
+    purpose: "Administre informações globais do Printora. Diagnósticos de impressora e agente ficam dentro dos registros.",
+  },
+  {
+    key: "account",
+    icon: Info,
+    label: "Conta",
+    detail: "Cadastro, login, organizações opcionais e segurança.",
+    purpose: "Gerencie acesso cloud, 2FA e organizações opcionais.",
   },
   {
     key: "about",
@@ -109,9 +225,8 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "setup"] },
-  { title: "Impressora ativa", sections: ["monitoring", "updates", "tests", "firmware", "maintenance"] },
-  { title: "Diagnóstico", sections: ["reports", "settings"] },
+  { title: "Principal", sections: ["overview", "onboarding", "printers", "agents", "projects", "materials", "social", "catalog", "setup"] },
+  { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([
@@ -125,7 +240,33 @@ export const selectedPrinterLocalSections = new Set<AppSection>(["firmware", "ma
 
 export type PrinterAvailability = "none" | "unknown" | "online" | "offline";
 
-export function canShowSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+export function canShowSection(
+  sectionKey: AppSection,
+  printerAvailability: PrinterAvailability,
+  isPlatformAdmin = false,
+) {
+  void printerAvailability;
+  if (sectionKey === "printer-detail" || sectionKey === "agent-detail") {
+    return false;
+  }
+  if (sectionKey === "design-system" && !isPlatformAdmin) {
+    return false;
+  }
+  if (onlinePrinterSections.has(sectionKey) || selectedPrinterLocalSections.has(sectionKey)) {
+    return false;
+  }
+  return true;
+}
+
+export function shouldRedirectSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+  void printerAvailability;
+  if (sectionKey === "monitoring" || sectionKey === "updates" || sectionKey === "tests" || sectionKey === "firmware" || sectionKey === "maintenance") {
+    return true;
+  }
+  return false;
+}
+
+export function canUsePrinterTab(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
   if (onlinePrinterSections.has(sectionKey)) {
     return printerAvailability === "online";
   }
@@ -135,17 +276,9 @@ export function canShowSection(sectionKey: AppSection, printerAvailability: Prin
   return true;
 }
 
-export function shouldRedirectSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
-  if (onlinePrinterSections.has(sectionKey)) {
-    return printerAvailability === "none" || printerAvailability === "offline";
-  }
-  if (selectedPrinterLocalSections.has(sectionKey)) {
-    return printerAvailability === "none";
-  }
-  return false;
-}
-
 export function getInitialSection(): AppSection {
+  if (window.location.pathname.startsWith("/community/accessibility/")) return "accessibility";
+  if (window.location.pathname.startsWith("/community/design_system/")) return "design-system";
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
   if (section === "operation") return "monitoring";
   if (section === "calibration") return "tests";

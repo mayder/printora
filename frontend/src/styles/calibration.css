@@ -301,6 +301,16 @@
   color: var(--success);
 }
 
+.calibration-sequence-row.live-verified .calibration-step-index {
+  border-color: rgb(47 179 109 / 0.42);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.calibration-sequence-row.live-verified .calibration-step-main small {
+  color: var(--success);
+}
+
 .calibration-sequence-row.skipped em {
   color: var(--warning);
 }

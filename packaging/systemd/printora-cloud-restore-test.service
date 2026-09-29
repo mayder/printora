@@ -1,0 +1,30 @@
+[Unit]
+Description=Testa restore isolado do Printora Cloud
+After=network-online.target printora-cloud-wal-sync.service
+Wants=network-online.target
+OnFailure=printora-cloud-recovery-alert@%n.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/libexec/printora-cloud/run-restore-test.sh
+StateDirectory=printora-cloud
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/postgresql /var/lib/printora-cloud /var/www/print3dmaker.xyz/shared/backup-cache
+InaccessiblePaths=/var/lib/postgresql/16/printora/pg_wal
+MemoryHigh=6G
+MemoryMax=8G
+CPUQuota=20%
+CPUWeight=5
+IOWeight=10
+IOReadBandwidthMax=/var/lib/postgresql 4M
+IOWriteBandwidthMax=/var/lib/postgresql 4M
+IOSchedulingClass=idle
+Nice=15
+TasksMax=128
+TimeoutStartSec=930

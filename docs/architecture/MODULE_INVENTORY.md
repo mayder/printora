@@ -1,0 +1,81 @@
+# Inventário De Módulos E Contratos
+
+> Gerado por `scripts/audit_module_boundaries.py`; não editar manualmente.
+
+## Resumo
+
+- módulos Python: 223;
+- endpoints HTTP/WebSocket: 433;
+- contratos tipados: 438;
+- tabelas declaradas em SQL: 175;
+- ciclos de import detectados: 0.
+
+## Fronteiras E Owners
+
+| Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
+|---|---|---|---:|---:|
+| `accessibility` | Acessibilidade | Preferências acessíveis, semântica, alternativas e contrato compartilhado. | 7 | 1 |
+| `design_system` | Design system | Tokens, componentes, estados e contratos visuais compartilhados. | 5 | 0 |
+| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 38 | 48 |
+| `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 86 | 57 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
+| `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 22 | 0 |
+
+## Arquivos Críticos
+
+| Módulo | Owner | Linhas | Rotas | Contratos |
+|---|---|---:|---:|---:|
+| `social_catalog` | `community` | 3496 | 0 | 0 |
+| `routes.operation` | `operations` | 1164 | 16 | 0 |
+| `operation` | `operations` | 1158 | 0 | 0 |
+| `routes.social_catalog` | `community` | 1150 | 59 | 0 |
+| `maintenance` | `operations` | 1147 | 0 | 8 |
+| `print_projects` | `community` | 1046 | 0 | 15 |
+| `self_update` | `administration` | 1007 | 0 | 10 |
+| `agent_pairing` | `operations` | 997 | 0 | 0 |
+| `auth` | `identity` | 959 | 0 | 0 |
+| `calibration` | `operations` | 910 | 0 | 12 |
+| `slicing_pipeline` | `operations` | 841 | 0 | 5 |
+| `routes.agents` | `operations` | 781 | 38 | 0 |
+| `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
+| `search_discovery` | `community` | 760 | 0 | 5 |
+| `setup_flash` | `operations` | 753 | 0 | 7 |
+| `routes.calibration` | `operations` | 742 | 15 | 0 |
+| `setup_can` | `operations` | 699 | 0 | 7 |
+| `modules.administration.intelligence` | `administration` | 673 | 0 | 0 |
+| `agent_support` | `operations` | 663 | 0 | 5 |
+| `setup_wizard` | `operations` | 643 | 0 | 7 |
+| `printers` | `operations` | 635 | 0 | 3 |
+| `database` | `shared` | 605 | 0 | 0 |
+| `gcode_files` | `operations` | 574 | 0 | 11 |
+| `social_moderation` | `community` | 567 | 0 | 8 |
+| `health` | `administration` | 547 | 0 | 0 |
+| `setup_firmware` | `operations` | 514 | 0 | 5 |
+| `setup_final_validation` | `operations` | 509 | 0 | 4 |
+| `firmware.repository` | `operations` | 489 | 0 | 0 |
+| `routes.auth` | `identity` | 486 | 30 | 0 |
+| `firmware_catalog` | `operations` | 478 | 0 | 14 |
+| `modules.operations.reconstruction.repository` | `operations` | 469 | 0 | 0 |
+| `updates` | `administration` | 465 | 0 | 8 |
+| `backups` | `administration` | 431 | 0 | 0 |
+| `print_delivery` | `operations` | 413 | 0 | 3 |
+| `modules.operations.materials.repository` | `operations` | 405 | 0 | 0 |
+| `install_diagnostics` | `administration` | 403 | 0 | 2 |
+| `modules.community.library_contracts` | `community` | 401 | 0 | 17 |
+| `print_profiles` | `community` | 400 | 0 | 5 |
+
+## Ciclos De Import
+
+Nenhum ciclo entre módulos Python foi detectado.
+
+## Contrato De Evolução
+
+- cada módulo possui um único owner;
+- API importa application/contract, nunca infrastructure interna de outro módulo;
+- domínio e contratos não importam FastAPI, SQLite, PostgreSQL, Redis, storage ou UI;
+- adapters cloud e local implementam ports compartilhadas, sem fallback cruzado;
+- toda alteração pública preserva compatibilidade N/N-1 ou versiona o contrato;
+- arquivos críticos acima do limite devem ser divididos ao serem alterados.

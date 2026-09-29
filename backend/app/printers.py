@@ -1,17 +1,21 @@
 from dataclasses import dataclass
 import base64
+from datetime import datetime, timezone
 import hashlib
 import hmac
+import json
 import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 from app.database import connect_database
 
 
 HostAuditMode = Literal["disabled", "local", "ssh"]
+CloudPrinterStatus = Literal["sem_agente", "aguardando_pareamento", "online", "offline", "degradado", "revogado"]
+AGENT_ONLINE_WINDOW_SECONDS = 120
 
 
 class PrinterCreate(BaseModel):
@@ -23,8 +27,16 @@ class PrinterCreate(BaseModel):
     ssh_port: int = Field(default=22, ge=1, le=65535)
     ssh_username: str | None = Field(default=None, max_length=80)
     ssh_credential: str | None = Field(default=None, max_length=500)
+    cloud_model: str | None = Field(default=None, max_length=120)
+    cloud_tags: list[str] = Field(default_factory=list, max_length=12)
     location: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=500)
+    organization_id: int | None = Field(default=None, ge=1)
+
+    @field_validator("cloud_tags")
+    @classmethod
+    def clean_cloud_tags(cls, value: list[str]) -> list[str]:
+        return _clean_tags(value)
 
 
 class PrinterUpdate(BaseModel):
@@ -37,9 +49,17 @@ class PrinterUpdate(BaseModel):
     ssh_username: str | None = Field(default=None, max_length=80)
     ssh_credential: str | None = Field(default=None, max_length=500)
     clear_ssh_credential: bool = False
+    cloud_model: str | None = Field(default=None, max_length=120)
+    cloud_tags: list[str] | None = Field(default=None, max_length=12)
     location: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=500)
+    organization_id: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
+
+    @field_validator("cloud_tags")
+    @classmethod
+    def clean_cloud_tags(cls, value: list[str] | None) -> list[str] | None:
+        return _clean_tags(value) if value is not None else None
 
 
 class PrinterRecord(BaseModel):
@@ -54,8 +74,23 @@ class PrinterRecord(BaseModel):
     ssh_port: int | None = None
     ssh_username: str | None = None
     ssh_credential_configured: bool = False
+    cloud_model: str | None = None
+    cloud_tags: list[str] = Field(default_factory=list)
+    cloud_status: CloudPrinterStatus = "sem_agente"
+    active_agent_count: int = 0
+    latest_agent_version: str | None = None
+    latest_agent_last_seen_at: str | None = None
+    latest_snapshot_at: str | None = None
     location: str | None
     notes: str | None
+    owner_user_id: int | None = None
+    organization_id: int | None = None
+    public_profile_enabled: bool = False
+    catalog_variant_id: int | None = None
+    public_name: str | None = None
+    public_description: str | None = None
+    public_mods: list[str] = Field(default_factory=list)
+    public_images: list[str] = Field(default_factory=list)
     is_active: bool
     created_at: str
     updated_at: str
@@ -72,33 +107,125 @@ class PrinterSshAccess:
 @dataclass(frozen=True)
 class PrinterRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def list_printers(self) -> list[PrinterRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = self._visibility_where("p")
             rows = connection.execute(
-                """
+                f"""
                 SELECT p.id, p.name, p.moonraker_url, p.host_audit_mode, p.host_audit_ssh_target,
-                       p.location, p.notes, p.is_active, p.created_at, p.updated_at,
+                       p.location, p.notes, p.cloud_model, p.cloud_tags_json,
+                       p.public_profile_enabled, p.catalog_variant_id, p.public_name,
+                       p.public_description, p.public_mods_json, p.public_images_json,
+                       p.owner_user_id, p.organization_id, p.is_active, p.created_at, p.updated_at,
+                       (
+                         SELECT COUNT(*)
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'active' AND a.revoked_at IS NULL
+                       ) AS active_agent_count,
+                       (
+                         SELECT COUNT(*)
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'revoked'
+                       ) AS revoked_agent_count,
+                       (
+                         SELECT COUNT(*)
+                         FROM printer_pairing_tokens t
+                         WHERE t.printer_id = p.id
+                           AND t.consumed_at IS NULL
+                           AND t.revoked_at IS NULL
+                           AND t.expires_at > CURRENT_TIMESTAMP
+                       ) AS active_pairing_token_count,
+                       (
+                         SELECT a.agent_version
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'active' AND a.revoked_at IS NULL
+                         ORDER BY a.last_seen_at IS NULL, a.last_seen_at DESC, a.paired_at DESC, a.id DESC
+                         LIMIT 1
+                       ) AS latest_agent_version,
+                       (
+                         SELECT a.last_seen_at
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'active' AND a.revoked_at IS NULL
+                         ORDER BY a.last_seen_at IS NULL, a.last_seen_at DESC, a.paired_at DESC, a.id DESC
+                         LIMIT 1
+                       ) AS latest_agent_last_seen_at,
+                       (
+                         SELECT s.created_at
+                         FROM printer_snapshots s
+                         WHERE s.printer_id = p.id
+                         ORDER BY s.created_at DESC, s.id DESC
+                         LIMIT 1
+                       ) AS latest_snapshot_at,
                        s.ssh_host, s.ssh_port, s.ssh_username, s.credential_configured
                 FROM printers p
                 LEFT JOIN printer_ssh_access s ON s.printer_id = p.id
+                {where_clause}
                 ORDER BY p.is_active DESC, p.name ASC
-                """
+                """,
+                params,
             ).fetchall()
         return [_record_from_row(row) for row in rows]
 
     def get_printer(self, printer_id: int) -> PrinterRecord | None:
         with connect_database(self.database_path) as connection:
+            where_clause, visibility_params = self._visibility_where("p")
+            visibility_sql = where_clause.replace("WHERE", "AND", 1) if where_clause else ""
             row = connection.execute(
-                """
+                f"""
                 SELECT p.id, p.name, p.moonraker_url, p.host_audit_mode, p.host_audit_ssh_target,
-                       p.location, p.notes, p.is_active, p.created_at, p.updated_at,
+                       p.location, p.notes, p.cloud_model, p.cloud_tags_json,
+                       p.public_profile_enabled, p.catalog_variant_id, p.public_name,
+                       p.public_description, p.public_mods_json, p.public_images_json,
+                       p.owner_user_id, p.organization_id, p.is_active, p.created_at, p.updated_at,
+                       (
+                         SELECT COUNT(*)
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'active' AND a.revoked_at IS NULL
+                       ) AS active_agent_count,
+                       (
+                         SELECT COUNT(*)
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'revoked'
+                       ) AS revoked_agent_count,
+                       (
+                         SELECT COUNT(*)
+                         FROM printer_pairing_tokens t
+                         WHERE t.printer_id = p.id
+                           AND t.consumed_at IS NULL
+                           AND t.revoked_at IS NULL
+                           AND t.expires_at > CURRENT_TIMESTAMP
+                       ) AS active_pairing_token_count,
+                       (
+                         SELECT a.agent_version
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'active' AND a.revoked_at IS NULL
+                         ORDER BY a.last_seen_at IS NULL, a.last_seen_at DESC, a.paired_at DESC, a.id DESC
+                         LIMIT 1
+                       ) AS latest_agent_version,
+                       (
+                         SELECT a.last_seen_at
+                         FROM printer_agents a
+                         WHERE a.printer_id = p.id AND a.status = 'active' AND a.revoked_at IS NULL
+                         ORDER BY a.last_seen_at IS NULL, a.last_seen_at DESC, a.paired_at DESC, a.id DESC
+                         LIMIT 1
+                       ) AS latest_agent_last_seen_at,
+                       (
+                         SELECT s.created_at
+                         FROM printer_snapshots s
+                         WHERE s.printer_id = p.id
+                         ORDER BY s.created_at DESC, s.id DESC
+                         LIMIT 1
+                       ) AS latest_snapshot_at,
                        s.ssh_host, s.ssh_port, s.ssh_username, s.credential_configured
                 FROM printers p
                 LEFT JOIN printer_ssh_access s ON s.printer_id = p.id
                 WHERE p.id = ?
+                {visibility_sql}
                 """,
-                (printer_id,),
+                (printer_id, *visibility_params),
             ).fetchone()
         return _record_from_row(row) if row else None
 
@@ -132,9 +259,10 @@ class PrinterRepository:
             cursor = connection.execute(
                 """
                 INSERT INTO printers (
-                    name, moonraker_url, host_audit_mode, host_audit_ssh_target, location, notes
+                    name, moonraker_url, host_audit_mode, host_audit_ssh_target,
+                    location, notes, cloud_model, cloud_tags_json, owner_user_id, organization_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload.name.strip(),
@@ -143,6 +271,10 @@ class PrinterRepository:
                     payload.host_audit_ssh_target,
                     payload.location,
                     payload.notes,
+                    _clean_optional_text(payload.cloud_model),
+                    _tags_json(payload.cloud_tags),
+                    self.user_id,
+                    self._allowed_organization_id(payload.organization_id),
                 ),
             )
             printer_id = int(cursor.lastrowid)
@@ -177,6 +309,12 @@ class PrinterRepository:
             values["is_active"] = 1 if values["is_active"] else 0
         if "host_audit_ssh_target" in values and values["host_audit_ssh_target"] is not None:
             values["host_audit_ssh_target"] = values["host_audit_ssh_target"].strip() or None
+        if "cloud_model" in values:
+            values["cloud_model"] = _clean_optional_text(values["cloud_model"])
+        if "cloud_tags" in values:
+            values["cloud_tags_json"] = _tags_json(values.pop("cloud_tags") or [])
+        if "organization_id" in values:
+            values["organization_id"] = self._allowed_organization_id(values["organization_id"])
 
         if values or ssh_values:
             with connect_database(self.database_path) as connection:
@@ -206,6 +344,45 @@ class PrinterRepository:
                             (ssh_target, printer_id),
                         )
         return self.get_printer(printer_id)
+
+    def _visibility_where(self, table_alias: str) -> tuple[str, tuple[object, ...]]:
+        if self.user_id is None:
+            return "", ()
+        params: list[object] = [self.user_id]
+        clauses = [f"{table_alias}.owner_user_id = ?"]
+        if self.organization_ids:
+            placeholders = ", ".join("?" for _ in self.organization_ids)
+            clauses.append(f"{table_alias}.organization_id IN ({placeholders})")
+            params.extend(self.organization_ids)
+            clauses.append(
+                f"""
+                EXISTS (
+                    SELECT 1 FROM auth_organization_printers op
+                    WHERE op.printer_id = {table_alias}.id
+                      AND op.organization_id IN ({placeholders})
+                )
+                """
+            )
+            params.extend(self.organization_ids)
+        return "WHERE (" + " OR ".join(clauses) + ")", tuple(params)
+
+    def _allowed_organization_id(self, organization_id: int | None) -> int | None:
+        if organization_id is None:
+            return None
+        if self.user_id is None or organization_id in self.organization_ids:
+            return organization_id
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT 1
+                FROM auth_organization_members
+                WHERE organization_id = ? AND user_id = ?
+                """,
+                (organization_id, self.user_id),
+            ).fetchone()
+        if row is not None:
+            return organization_id
+        raise ValueError("organização não pertence ao usuário")
 
     def _upsert_ssh_access(self, connection, printer_id: int, payload: PrinterCreate | dict[str, object]) -> None:
         values = payload.model_dump(exclude_unset=True) if isinstance(payload, BaseModel) else payload
@@ -266,6 +443,10 @@ class PrinterRepository:
 
 
 def _record_from_row(row) -> PrinterRecord:
+    active_agent_count = int(row["active_agent_count"] or 0)
+    revoked_agent_count = int(row["revoked_agent_count"] or 0)
+    active_pairing_token_count = int(row["active_pairing_token_count"] or 0)
+    latest_agent_last_seen_at = row["latest_agent_last_seen_at"]
     return PrinterRecord(
         id=int(row["id"]),
         name=str(row["name"]),
@@ -276,12 +457,117 @@ def _record_from_row(row) -> PrinterRecord:
         ssh_port=int(row["ssh_port"]) if row["ssh_port"] is not None else None,
         ssh_username=row["ssh_username"],
         ssh_credential_configured=bool(row["credential_configured"]),
+        cloud_model=row["cloud_model"],
+        cloud_tags=_parse_tags(row["cloud_tags_json"]),
+        cloud_status=_cloud_status(
+            active_agent_count=active_agent_count,
+            revoked_agent_count=revoked_agent_count,
+            active_pairing_token_count=active_pairing_token_count,
+            latest_agent_last_seen_at=latest_agent_last_seen_at,
+        ),
+        active_agent_count=active_agent_count,
+        latest_agent_version=row["latest_agent_version"],
+        latest_agent_last_seen_at=latest_agent_last_seen_at,
+        latest_snapshot_at=row["latest_snapshot_at"],
         location=row["location"],
         notes=row["notes"],
+        owner_user_id=row["owner_user_id"],
+        organization_id=row["organization_id"],
+        public_profile_enabled=bool(row["public_profile_enabled"]),
+        catalog_variant_id=row["catalog_variant_id"],
+        public_name=row["public_name"],
+        public_description=row["public_description"],
+        public_mods=_parse_text_list(row["public_mods_json"], limit=20),
+        public_images=_parse_public_images(row["public_images_json"]),
         is_active=bool(row["is_active"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
+
+
+def _clean_tags(values: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        tag = str(value).strip().lower()
+        if not tag or tag in seen:
+            continue
+        cleaned.append(tag[:32])
+        seen.add(tag)
+        if len(cleaned) >= 12:
+            break
+    return cleaned
+
+
+def _tags_json(values: list[str]) -> str:
+    return json.dumps(_clean_tags(values), ensure_ascii=False)
+
+
+def _parse_tags(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return _clean_tags([str(item) for item in parsed])
+
+
+def _parse_public_images(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item).strip()][:6]
+
+
+def _parse_text_list(value: str | None, *, limit: int) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item).strip()][:limit]
+
+
+def _cloud_status(
+    *,
+    active_agent_count: int,
+    revoked_agent_count: int,
+    active_pairing_token_count: int,
+    latest_agent_last_seen_at: str | None,
+) -> CloudPrinterStatus:
+    if active_agent_count <= 0:
+        if active_pairing_token_count > 0:
+            return "aguardando_pareamento"
+        if revoked_agent_count > 0:
+            return "revogado"
+        return "sem_agente"
+    if latest_agent_last_seen_at is None:
+        return "aguardando_pareamento"
+    age_seconds = _age_seconds(latest_agent_last_seen_at)
+    return "online" if age_seconds is not None and age_seconds <= AGENT_ONLINE_WINDOW_SECONDS else "offline"
+
+
+def _age_seconds(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0, int((datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds()))
 
 
 def _clean_optional_text(value: object) -> str | None:

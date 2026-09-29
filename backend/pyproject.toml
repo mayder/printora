@@ -1,24 +1,57 @@
 [project]
 name = "printora-backend"
-version = "0.1.19"
+version = "0.1.47"
 description = "Backend API for Printora."
 requires-python = ">=3.11"
 dependencies = [
+  "boto3>=1.40.0,<2",
   "fastapi>=0.115.0",
   "httpx>=0.27.0",
+  "Pillow>=11.0.0,<13",
+  "psycopg[binary]>=3.2.0,<4",
   "pydantic>=2.8.0",
   "pydantic-settings>=2.4.0",
-  "uvicorn[standard]>=0.30.0"
+  "redis>=6.0,<7",
+  "uvicorn[standard]>=0.30.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.3.0"
+  "hypothesis>=6.138.0,<7",
+  "mutmut>=3.4.0,<4",
+  "pytest>=8.3.0",
+  "pytest-cov>=7.0.0,<8"
 ]
 
 [tool.setuptools]
 packages = ["app", "app.firmware", "app.routes"]
 
+[tool.setuptools.package-data]
+app = ["data/*.json", "data/agent_releases/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.mutmut]
+source_paths = ["app"]
+only_mutate = [
+  "app/modules/community/validation.py",
+  "app/modules/identity/security.py",
+  "app/modules/platform/idempotency.py",
+  "app/payment_provider.py",
+]
+mutate_only_covered_lines = true
+also_copy = ["sql"]
+pytest_add_cli_args_test_selection = [
+  "tests/test_property_fuzz.py",
+  "tests/test_auth.py",
+  "tests/test_finance_payments.py",
+  "tests/test_idempotency.py",
+]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 79

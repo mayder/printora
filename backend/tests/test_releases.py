@@ -79,6 +79,27 @@ def test_release_changelog_summary_is_bounded() -> None:
     assert releases[0].changelog_summary.endswith("…")
 
 
+def test_release_changelog_hides_internal_package_ids() -> None:
+    raw = [
+        {
+            "tag_name": "v0.2.1",
+            "name": "Printora 0.2.1",
+            "body": "PKG-73: envio seguro. Ajustes do PKG-74 em lote 2.",
+            "html_url": "https://github.com/mayder/printora/releases/tag/v0.2.1",
+            "published_at": "2026-06-17T00:00:00Z",
+            "prerelease": False,
+            "draft": False,
+        }
+    ]
+
+    releases = parse_releases(raw, channel="stable", installed_version="0.1.0")
+
+    assert len(releases) == 1
+    assert "PKG" not in releases[0].changelog
+    assert "PKG" not in releases[0].changelog_summary
+    assert "lote 2" not in releases[0].changelog_summary.lower()
+
+
 def test_github_release_client_reports_network_error_without_update(monkeypatch) -> None:
     client = GitHubReleaseClient(owner="mayder", repo="printora", timeout_seconds=0.01)
 

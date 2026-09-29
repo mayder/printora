@@ -264,6 +264,19 @@ def build_firmware_hardware_inventory(
     )
 
 
+def build_firmware_hardware_inventory_unavailable(*, printer_id: int, reason: str) -> FirmwareHardwareInventory:
+    return FirmwareHardwareInventory(
+        printer_id=printer_id,
+        safe_mode="read_only_moonraker_inventory_unavailable",
+        source="agent_unavailable",
+        summary=f"Não foi possível ler as MCUs agora. {reason}",
+        catalog_source=catalog_source(),
+        catalog_counts=catalog_counts(),
+        catalog_hardware_without_local_preset=catalog_hardware_without_local_preset(),
+        items=[],
+    )
+
+
 def _registered_identity_keys(items: list[FirmwareHardwareItem]) -> set[str]:
     identities: set[str] = set()
     for item in items:

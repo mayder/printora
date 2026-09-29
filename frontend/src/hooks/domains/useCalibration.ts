@@ -1,28 +1,38 @@
 import React from "react";
+import * as authApi from "../../services/authApi";
 import { calibrationApi } from "../../services/calibrationApi";
+import { readApiError } from "../../services/http";
+import { operationApi } from "../../services/operationApi";
 import { zOffsetApi } from "../../services/zOffsetApi";
 import type {
   CalibrationAvailableTestsResponse,
+  CalibrationConsoleResponse,
   CalibrationExecutionRecord,
   CalibrationPreflight,
   CalibrationRunRecord,
   CalibrationSequencePlan,
   CalibrationSummary,
   CalibrationTestRecord,
+  ConfigRemediationResult,
+  OperationActionExecutionAttempt,
+  ConfirmActionOptions,
   ZOffsetRecord,
   ZOffsetWizardPlan,
+  AuthUser,
 } from "../../types";
-import { getCalibrationResultFormConfig } from "../../utils/formatters";
+import { calibrationExecutionPidHeater, calibrationExecutionPidParameters, formatDateTime, getCalibrationResultFormConfig } from "../../utils/formatters";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
 
 type UseCalibrationOptions = {
+  authUser: AuthUser | null;
   selectedPrinterId: number | null;
+  confirmAction: (options: ConfirmActionOptions) => Promise<boolean>;
   setError: SetError;
   setLoading: SetLoading;
 };
 
-export function useCalibration({ selectedPrinterId, setError, setLoading }: UseCalibrationOptions) {
+export function useCalibration({ authUser, selectedPrinterId, confirmAction, setError, setLoading }: UseCalibrationOptions) {
   const [calibrationTests, setCalibrationTests] = React.useState<CalibrationTestRecord[]>([]);
   const [calibrationHiddenTests, setCalibrationHiddenTests] = React.useState<CalibrationAvailableTestsResponse["hidden_tests"]>([]);
   const [calibrationRuns, setCalibrationRuns] = React.useState<CalibrationRunRecord[]>([]);
@@ -31,6 +41,26 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const [calibrationPreflight, setCalibrationPreflight] = React.useState<CalibrationPreflight | null>(null);
   const [calibrationExecutions, setCalibrationExecutions] = React.useState<CalibrationExecutionRecord[]>([]);
   const [calibrationExecutionResult, setCalibrationExecutionResult] = React.useState<CalibrationExecutionRecord | null>(null);
+  const [calibrationExecutionBusy, setCalibrationExecutionBusy] = React.useState(false);
+  const [calibrationLiveConsole, setCalibrationLiveConsole] = React.useState<string[]>([]);
+  const [calibrationLiveConsoleError, setCalibrationLiveConsoleError] = React.useState("");
+  const [calibrationSaveConfigBusy, setCalibrationSaveConfigBusy] = React.useState(false);
+  const [calibrationSaveConfigError, setCalibrationSaveConfigError] = React.useState("");
+  const [calibrationSaveConfigResult, setCalibrationSaveConfigResult] = React.useState<OperationActionExecutionAttempt | null>(null);
+  const [calibrationSaveConfigExecutionId, setCalibrationSaveConfigExecutionId] = React.useState<number | null>(null);
+  const [calibrationConfigRemediationBusy, setCalibrationConfigRemediationBusy] = React.useState(false);
+  const [calibrationConfigRemediationError, setCalibrationConfigRemediationError] = React.useState("");
+  const [calibrationConfigRemediationPreview, setCalibrationConfigRemediationPreview] = React.useState<ConfigRemediationResult | null>(null);
+  const [calibrationConfigRemediationApplyResult, setCalibrationConfigRemediationApplyResult] = React.useState<ConfigRemediationResult | null>(null);
+  const [calibrationConfigRemediationExecutionId, setCalibrationConfigRemediationExecutionId] = React.useState<number | null>(null);
+  const [calibrationConfigRemediationSelectedIds, setCalibrationConfigRemediationSelectedIds] = React.useState<string[]>([]);
+  const [calibrationStepUpOpen, setCalibrationStepUpOpen] = React.useState(false);
+  const [calibrationStepUpPassword, setCalibrationStepUpPassword] = React.useState("");
+  const [calibrationStepUpCode, setCalibrationStepUpCode] = React.useState("");
+  const [calibrationStepUpBusy, setCalibrationStepUpBusy] = React.useState(false);
+  const [calibrationStepUpError, setCalibrationStepUpError] = React.useState("");
+  const [calibrationStepUpPendingAction, setCalibrationStepUpPendingAction] = React.useState<"save_config" | "config_remediation" | null>(null);
+  const [calibrationStepUpPendingExecution, setCalibrationStepUpPendingExecution] = React.useState<CalibrationExecutionRecord | null>(null);
   const [calibrationHelpTestKey, setCalibrationHelpTestKey] = React.useState<string | null>(null);
   const [calibrationExecuteTestKey, setCalibrationExecuteTestKey] = React.useState<string | null>(null);
   const [calibrationResultTestKey, setCalibrationResultTestKey] = React.useState<string | null>(null);
@@ -60,6 +90,32 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const [calibrationPhotoReference, setCalibrationPhotoReference] = React.useState("");
   const [calibrationOperatorPresent, setCalibrationOperatorPresent] = React.useState(false);
   const [calibrationExecutionConfirmation, setCalibrationExecutionConfirmation] = React.useState("");
+  const calibrationExecutionInFlightRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!selectedPrinterId || calibrationExecutionResult?.status !== "dispatched_unconfirmed") {
+      return;
+    }
+    const printerId = selectedPrinterId;
+    let canceled = false;
+    async function tick() {
+      const payload = await fetchCalibrationLiveConsole(printerId);
+      if (canceled || !payload) {
+        return;
+      }
+      setCalibrationLiveConsole(payload.console);
+      setCalibrationLiveConsoleError(payload.error || "");
+      handleCalibrationConsoleUpdate(payload, printerId);
+    }
+    void tick();
+    const intervalId = window.setInterval(() => {
+      void tick();
+    }, 3000);
+    return () => {
+      canceled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [selectedPrinterId, calibrationExecutionResult?.status, calibrationExecutionResult?.id]);
 
   async function loadCalibrationTests(printerId?: number) {
     const response = await calibrationApi.availableTests(printerId);
@@ -158,9 +214,27 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   }
 
   async function openCalibrationExecute(test: CalibrationTestRecord) {
+    const activeExecution =
+      calibrationExecutionResult?.test_key === test.test_key && calibrationExecutionResult.status === "dispatched_unconfirmed"
+        ? calibrationExecutionResult
+        : calibrationExecutions.find((execution) => execution.test_key === test.test_key && execution.status === "dispatched_unconfirmed");
     setCalibrationTestKey(test.test_key);
     setCalibrationExecuteTestKey(test.test_key);
+    if (activeExecution) {
+      setCalibrationExecutionResult(activeExecution);
+      if (!selectedPrinterId) {
+        return;
+      }
+      const consolePayload = await fetchCalibrationLiveConsole(selectedPrinterId);
+      setCalibrationLiveConsole(consolePayload?.console ?? []);
+      setCalibrationLiveConsoleError(consolePayload?.error || "");
+      handleCalibrationConsoleUpdate(consolePayload, selectedPrinterId);
+      return;
+    }
     setCalibrationExecutionResult(null);
+    resetCalibrationSaveConfig();
+    setCalibrationLiveConsole([]);
+    setCalibrationLiveConsoleError("");
     setCalibrationPreflight(null);
     setCalibrationGcodeReviewed(false);
     setCalibrationOperatorPresent(false);
@@ -212,13 +286,23 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     } else if (!calibrationNozzle.trim()) {
       setCalibrationNozzle("T0");
     }
+    resetCalibrationSaveConfig();
+    resetCalibrationConfigRemediation();
+    if (selectedPrinterId && calibrationExecutions.some((execution) => execution.test_key === test.test_key && execution.status === "dispatched_unconfirmed")) {
+      void fetchCalibrationLiveConsole(selectedPrinterId).then((consolePayload) => {
+        setCalibrationLiveConsole(consolePayload?.console ?? []);
+        setCalibrationLiveConsoleError(consolePayload?.error || "");
+        handleCalibrationConsoleUpdate(consolePayload, selectedPrinterId);
+      });
+    }
   }
 
   async function executeCalibrationGcode(confirmationOverride?: string) {
-    if (!selectedPrinterId || !calibrationTestKey) {
+    if (!selectedPrinterId || !calibrationTestKey || calibrationExecutionInFlightRef.current) {
       return;
     }
-    setLoading(true);
+    calibrationExecutionInFlightRef.current = true;
+    setCalibrationExecutionBusy(true);
     setError(null);
     try {
       const response = await calibrationApi.execute(selectedPrinterId, {
@@ -232,13 +316,259 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
       }
       const payload = (await response.json()) as CalibrationExecutionRecord;
       setCalibrationExecutionResult(payload);
+      resetCalibrationSaveConfig();
+      resetCalibrationConfigRemediation();
       setCalibrationActivityCleared(false);
+      if (payload.status === "dispatched_unconfirmed") {
+        const consolePayload = await fetchCalibrationLiveConsole(selectedPrinterId);
+        setCalibrationLiveConsole(consolePayload?.console ?? []);
+        setCalibrationLiveConsoleError(consolePayload?.error || "");
+        handleCalibrationConsoleUpdate(consolePayload, selectedPrinterId);
+      }
       await loadCalibrationRuns(selectedPrinterId);
       if (payload.status === "executed") {
         setCalibrationOperatorPresent(false);
         setCalibrationGcodeReviewed(false);
         setCalibrationExecutionConfirmation("");
       }
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      calibrationExecutionInFlightRef.current = false;
+      setCalibrationExecutionBusy(false);
+    }
+  }
+
+  async function saveCalibrationConfigFromExecution(options: { suppressStepUpPrompt?: boolean; execution?: CalibrationExecutionRecord } = {}) {
+    if (!selectedPrinterId || calibrationSaveConfigBusy) {
+      return;
+    }
+    const execution = options.execution ?? calibrationExecutionResult ?? calibrationResultExecutions[0] ?? null;
+    setCalibrationSaveConfigBusy(true);
+    setCalibrationSaveConfigError("");
+    setCalibrationSaveConfigResult(null);
+    setCalibrationSaveConfigExecutionId(execution?.id ?? null);
+    setError(null);
+    try {
+      const response = await operationApi.executeDirect(selectedPrinterId, {
+        action_id: "save_config",
+        parameters: {},
+        confirmation_phrase: "CONFIRM_SAVE_CONFIG",
+      });
+      if (!response.ok) {
+        const apiError = await readOperationApiError(response);
+        setCalibrationSaveConfigError(apiError.message);
+        if (apiError.stepUpRequired && !options.suppressStepUpPrompt) {
+          setCalibrationStepUpPendingAction("save_config");
+          setCalibrationStepUpPendingExecution(execution);
+          setCalibrationStepUpOpen(true);
+          setCalibrationStepUpError("");
+        }
+        return;
+      }
+      setCalibrationSaveConfigResult((await response.json()) as OperationActionExecutionAttempt);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setCalibrationSaveConfigBusy(false);
+    }
+  }
+
+  async function fetchCalibrationLiveConsole(printerId: number) {
+    try {
+      const response = await calibrationApi.console(printerId, 80);
+      if (!response.ok) {
+        return { data_state: "offline", console: [], error: await readApiError(response) } satisfies CalibrationConsoleResponse;
+      }
+      return (await response.json()) as CalibrationConsoleResponse;
+    } catch (err) {
+      return { data_state: "offline", console: [], error: unknownErrorMessage(err) } satisfies CalibrationConsoleResponse;
+    }
+  }
+
+  async function previewCalibrationConfigRemediation(executionOverride?: CalibrationExecutionRecord) {
+    if (!selectedPrinterId || calibrationConfigRemediationBusy) {
+      return;
+    }
+    const request = calibrationConfigRemediationRequest(executionOverride);
+    if (!request) {
+      setCalibrationConfigRemediationError("Não consegui identificar valores calculados para corrigir o arquivo.");
+      return;
+    }
+    setCalibrationConfigRemediationExecutionId(request.execution_id ?? null);
+    setCalibrationConfigRemediationBusy(true);
+    setCalibrationConfigRemediationError("");
+    setCalibrationConfigRemediationApplyResult(null);
+    try {
+      const response = await calibrationApi.configRemediationPreview(selectedPrinterId, request);
+      if (!response.ok) {
+        setCalibrationConfigRemediationError(await readApiError(response));
+        return;
+      }
+      const payload = (await response.json()) as ConfigRemediationResult;
+      setCalibrationConfigRemediationPreview(payload);
+      setCalibrationConfigRemediationSelectedIds((payload.candidates ?? []).filter((candidate) => candidate.changed).map((candidate) => candidate.id));
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setCalibrationConfigRemediationBusy(false);
+    }
+  }
+
+  async function applyCalibrationConfigRemediation(
+    options: { suppressStepUpPrompt?: boolean; execution?: CalibrationExecutionRecord } = {},
+  ) {
+    if (!selectedPrinterId || calibrationConfigRemediationBusy) {
+      return;
+    }
+    const request = calibrationConfigRemediationRequest(options.execution);
+    if (!request || calibrationConfigRemediationSelectedIds.length === 0) {
+      setCalibrationConfigRemediationError("Selecione pelo menos um arquivo para aplicar.");
+      return;
+    }
+    setCalibrationConfigRemediationExecutionId(request.execution_id ?? null);
+    setCalibrationConfigRemediationBusy(true);
+    setCalibrationConfigRemediationError("");
+    try {
+      const response = await calibrationApi.configRemediationApply(selectedPrinterId, {
+        ...request,
+        target_ids: calibrationConfigRemediationSelectedIds,
+      });
+      if (!response.ok) {
+        const apiError = await readOperationApiError(response);
+        setCalibrationConfigRemediationError(apiError.message);
+        if (apiError.stepUpRequired && !options.suppressStepUpPrompt) {
+          setCalibrationStepUpPendingAction("config_remediation");
+          setCalibrationStepUpPendingExecution(options.execution ?? null);
+          setCalibrationStepUpOpen(true);
+          setCalibrationStepUpError("");
+        }
+        return;
+      }
+      const payload = (await response.json()) as ConfigRemediationResult;
+      setCalibrationConfigRemediationApplyResult(payload);
+      setCalibrationConfigRemediationPreview(payload);
+      await loadCalibrationRuns(selectedPrinterId);
+      await refreshCalibrationExecutionsAfterRemediation(selectedPrinterId, request.execution_id ?? null);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setCalibrationConfigRemediationBusy(false);
+    }
+  }
+
+  function toggleCalibrationConfigRemediationTarget(targetId: string) {
+    setCalibrationConfigRemediationSelectedIds((current) =>
+      current.includes(targetId) ? current.filter((item) => item !== targetId) : [...current, targetId],
+    );
+  }
+
+  async function submitCalibrationStepUp() {
+    const password = calibrationStepUpPassword.trim();
+    const code = calibrationStepUpCode.trim();
+    if (authUser?.mfa_enabled) {
+      if (!code) {
+        setCalibrationStepUpError("Informe o código 2FA para autorizar esta ação.");
+        return;
+      }
+    } else if (!password) {
+      setCalibrationStepUpError("Informe a senha atual da conta para autorizar esta ação.");
+      return;
+    }
+    setCalibrationStepUpBusy(true);
+    setCalibrationStepUpError("");
+    try {
+      await authApi.createStepUpToken({
+        purpose: "destructive_action",
+        password: password || undefined,
+        code: code || undefined,
+      });
+      setCalibrationStepUpPassword("");
+      setCalibrationStepUpCode("");
+      setCalibrationStepUpOpen(false);
+      const pendingAction = calibrationStepUpPendingAction;
+      const pendingExecution = calibrationStepUpPendingExecution;
+      setCalibrationStepUpPendingAction(null);
+      setCalibrationStepUpPendingExecution(null);
+      if (pendingAction === "config_remediation") {
+        await applyCalibrationConfigRemediation({ suppressStepUpPrompt: true, execution: pendingExecution ?? undefined });
+      } else {
+        await saveCalibrationConfigFromExecution({ suppressStepUpPrompt: true, execution: pendingExecution ?? undefined });
+      }
+    } catch (err) {
+      setCalibrationStepUpError(err instanceof Error ? err.message : "Falha ao gerar autorização.");
+    } finally {
+      setCalibrationStepUpBusy(false);
+    }
+  }
+
+  function downloadCalibrationExecutionHistoryItem(execution: CalibrationExecutionRecord) {
+    downloadCalibrationHistoryJson(`calibracao-${execution.test_key}-execucao-${execution.id}.json`, {
+      kind: "calibration_execution",
+      exported_at: new Date().toISOString(),
+      execution,
+    });
+  }
+
+  function downloadCalibrationRunHistoryItem(run: CalibrationRunRecord) {
+    downloadCalibrationHistoryJson(`calibracao-${run.test_key}-resultado-${run.id}.json`, {
+      kind: "calibration_result",
+      exported_at: new Date().toISOString(),
+      run,
+    });
+  }
+
+  async function deleteCalibrationExecutionHistoryItem(execution: CalibrationExecutionRecord) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    const confirmed = await confirmAction({
+      tone: "danger",
+      title: "Apagar execução",
+      detail: "Esta execução antiga sairá do histórico deste teste. O último registro permanece protegido.",
+      evidence: `${formatDateTime(execution.created_at)} · ${execution.status} · ${execution.sent_commands.length} comando(s)`,
+      confirmLabel: "Apagar",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await calibrationApi.deleteExecution(selectedPrinterId, execution.id);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadCalibrationRuns(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteCalibrationRunHistoryItem(run: CalibrationRunRecord) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    const confirmed = await confirmAction({
+      tone: "danger",
+      title: "Apagar resultado",
+      detail: "Este resultado antigo sairá do histórico deste teste. O último registro permanece protegido.",
+      evidence: `${formatDateTime(run.created_at)} · ${run.result_status} · ${run.observed_value || run.notes || "-"}`,
+      confirmLabel: "Apagar",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await calibrationApi.deleteRun(selectedPrinterId, run.id);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadCalibrationRuns(selectedPrinterId);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -335,6 +665,18 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const calibrationResultFormConfig = calibrationResultTest ? getCalibrationResultFormConfig(calibrationResultTest) : null;
   const calibrationResultRuns = calibrationResultTest ? calibrationRuns.filter((run) => run.test_key === calibrationResultTest.test_key) : [];
   const calibrationResultExecutions = calibrationResultTest ? calibrationExecutions.filter((execution) => execution.test_key === calibrationResultTest.test_key) : [];
+  const latestCalibrationExecutionIdByTest = new Map<string, number>();
+  calibrationExecutions.forEach((execution) => {
+    if (!latestCalibrationExecutionIdByTest.has(execution.test_key)) {
+      latestCalibrationExecutionIdByTest.set(execution.test_key, execution.id);
+    }
+  });
+  const latestCalibrationRunIdByTest = new Map<string, number>();
+  calibrationRuns.forEach((run) => {
+    if (!latestCalibrationRunIdByTest.has(run.test_key)) {
+      latestCalibrationRunIdByTest.set(run.test_key, run.id);
+    }
+  });
   const calibrationVisibleGcodeCount = calibrationTests.filter((test) => test.gcode.length > 0).length;
   const calibrationBlockedGcodeCount = calibrationHiddenTests.length;
   const calibrationRecommended = calibrationSummary?.recommended_next_tests.slice(0, 5) ?? [];
@@ -386,14 +728,101 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const recentCalibrationActivityCount =
     (calibrationExecutionResult ? 1 : 0) + calibrationExecutions.slice(0, 4).length + calibrationRuns.slice(0, 4).length;
 
+  function handleCalibrationConsoleUpdate(payload: CalibrationConsoleResponse | undefined, printerId: number) {
+    const updatedExecution = payload?.updated_execution;
+    if (!updatedExecution) {
+      return;
+    }
+    setCalibrationExecutionResult((current) => (current?.id === updatedExecution.id ? updatedExecution : current));
+    setCalibrationExecutions((current) => [
+      updatedExecution,
+      ...current.filter((execution) => execution.id !== updatedExecution.id),
+    ]);
+    void loadCalibrationRuns(printerId);
+  }
+
+  function calibrationConfigRemediationRequest(executionOverride?: CalibrationExecutionRecord) {
+    const execution = executionOverride ?? calibrationExecutionResult ?? calibrationResultExecutions[0] ?? null;
+    if (!execution) {
+      return null;
+    }
+    const pid =
+      calibrationExecutionPidParameters(execution) ??
+      (execution.id === calibrationExecutionResult?.id ? extractPidParametersFromConsole(calibrationLiveConsole) : null);
+    if (!pid) {
+      return null;
+    }
+    const heater = calibrationExecutionPidHeater(execution);
+    if (!heater) {
+      return null;
+    }
+    return {
+      section: heater,
+      source: `calibration:${execution.test_key}`,
+      execution_id: execution.id,
+      options: [
+        { option: "pid_Kp", value: String(pid.kp) },
+        { option: "pid_Ki", value: String(pid.ki) },
+        { option: "pid_Kd", value: String(pid.kd) },
+      ],
+    };
+  }
+
+  function resetCalibrationConfigRemediation() {
+    setCalibrationConfigRemediationError("");
+    setCalibrationConfigRemediationPreview(null);
+    setCalibrationConfigRemediationApplyResult(null);
+    setCalibrationConfigRemediationExecutionId(null);
+    setCalibrationConfigRemediationSelectedIds([]);
+  }
+
+  function resetCalibrationSaveConfig() {
+    setCalibrationSaveConfigError("");
+    setCalibrationSaveConfigResult(null);
+    setCalibrationSaveConfigExecutionId(null);
+  }
+
+  async function refreshCalibrationExecutionsAfterRemediation(printerId: number, executionId: number | null) {
+    const response = await calibrationApi.executions(printerId);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { executions: CalibrationExecutionRecord[] };
+    setCalibrationExecutions(payload.executions);
+    if (executionId) {
+      const updated = payload.executions.find((execution) => execution.id === executionId);
+      if (updated) {
+        setCalibrationExecutionResult((current) => (current?.id === updated.id ? updated : current));
+      }
+    }
+  }
+
   return {
     calibrationActivityCleared,
     calibrationBlockedGcodeCount,
+    calibrationConfigRemediationApplyResult,
+    calibrationConfigRemediationBusy,
+    calibrationConfigRemediationError,
+    calibrationConfigRemediationPreview,
+    calibrationConfigRemediationSelectedIds,
     calibrationExecuteTest,
     calibrationExecuteTestKey,
     calibrationExecutionConfirmation,
+    calibrationExecutionBusy,
+    calibrationLiveConsole,
+    calibrationLiveConsoleError,
     calibrationExecutionResult,
     calibrationExecutions,
+    calibrationSaveConfigBusy,
+    calibrationSaveConfigError,
+    calibrationSaveConfigExecutionId,
+    calibrationSaveConfigResult,
+    calibrationConfigRemediationExecutionId,
+    calibrationStepUpBusy,
+    calibrationStepUpCode,
+    calibrationStepUpError,
+    calibrationStepUpOpen,
+    calibrationStepUpPassword,
     calibrationGcodeReviewed,
     calibrationHelpTest,
     calibrationHelpTestKey,
@@ -423,16 +852,25 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     calibrationVisibleGcodeCount,
     createCalibrationRun,
     createZOffsetRecord,
+    deleteCalibrationExecutionHistoryItem,
+    deleteCalibrationRunHistoryItem,
+    downloadCalibrationExecutionHistoryItem,
+    downloadCalibrationRunHistoryItem,
     evaluateZOffsetWizard,
     executeCalibrationGcode,
     hiddenCalibrationKeys,
+    latestCalibrationExecutionIdByTest,
+    latestCalibrationRunIdByTest,
     loadCalibrationPreflight,
     loadCalibrationRuns,
     loadCalibrationTests,
     loadZOffsets,
     openCalibrationExecute,
     openCalibrationResult,
+    applyCalibrationConfigRemediation,
+    previewCalibrationConfigRemediation,
     recentCalibrationActivityCount,
+    saveCalibrationConfigFromExecution,
     selectedCalibrationTest,
     setCalibrationActivityCleared,
     setCalibrationExecuteTestKey,
@@ -458,6 +896,10 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     setCalibrationSummary,
     setCalibrationTestKey,
     setCalibrationTests,
+    setCalibrationStepUpCode,
+    setCalibrationStepUpOpen,
+    setCalibrationStepUpPassword,
+    toggleCalibrationConfigRemediationTarget,
     setTestFilter,
     setTestSearch,
     setTestUsageFilter,
@@ -470,6 +912,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     setZOffsetValue,
     setZOffsetWizardChecks,
     setZOffsetWizardPlan,
+    submitCalibrationStepUp,
     testFilter,
     testSearch,
     testUsageFilter,
@@ -487,5 +930,49 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     zOffsetValue,
     zOffsetWizardChecks,
     zOffsetWizardPlan,
+  };
+}
+
+async function readOperationApiError(response: Response) {
+  try {
+    const payload = await response.clone().json();
+    if (payload?.detail === "autenticação reforçada obrigatória para ação crítica") {
+      return {
+        stepUpRequired: true,
+        message: "Ação crítica bloqueada. Informe sua senha para gerar autorização e continuar.",
+      };
+    }
+  } catch {
+    // Fall back to the common API error reader.
+  }
+  return { stepUpRequired: false, message: await readApiError(response) };
+}
+
+function downloadCalibrationHistoryJson(filename: string, payload: unknown) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function extractPidParametersFromConsole(lines: string[]) {
+  const match = lines
+    .join("\n")
+    .match(/pid_Kp=(?<kp>[0-9.]+)\s+pid_Ki=(?<ki>[0-9.]+)\s+pid_Kd=(?<kd>[0-9.]+)/);
+  if (!match?.groups) {
+    return null;
+  }
+  return {
+    kp: Number(match.groups.kp),
+    ki: Number(match.groups.ki),
+    kd: Number(match.groups.kd),
   };
 }

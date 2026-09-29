@@ -1,11 +1,19 @@
-import asyncio
 from pathlib import Path
+import json
+import os
+import subprocess
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
 from app.config import get_settings
+from app.config_remediation import (
+    ConfigOptionPatch,
+    ConfigRemediationApplyRequest,
+    ConfigRemediationRequest,
+    build_config_remediation_script,
+)
 from app.calibration import (
     CalibrationExecutionRequest,
     CalibrationRepository,
@@ -13,9 +21,16 @@ from app.calibration import (
     build_available_calibration_tests,
     build_calibration_execution_gate,
     build_calibration_preflight,
+    _blocked_calibration_command,
 )
 from app.database import initialize_database
-from app.main import app, _send_and_monitor_gcode
+from app.main import app
+from app.routes.calibration import (
+    _append_config_remediation_to_execution,
+    _calibration_execution_results,
+    _calibration_execution_timeout,
+    _calibration_execution_wait_timeout,
+)
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -44,6 +59,24 @@ def test_calibration_catalog_is_seeded(tmp_path: Path) -> None:
     assert "retraction_tuning" in keys
     assert "dimensional_skew" in keys
     assert len(tests) >= 10
+
+
+def test_pid_calibration_timeout_stays_below_gateway_limit(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    settings = type("Settings", (), {"request_timeout_seconds": 5.0})()
+
+    pid_hotend = repository.get_test("pid_hotend")
+    pid_bed = repository.get_test("pid_bed")
+
+    assert pid_hotend is not None
+    assert pid_bed is not None
+    for test in (pid_hotend, pid_bed):
+        command_timeout = _calibration_execution_timeout(test, settings)
+        wait_timeout = _calibration_execution_wait_timeout(test, settings, command_timeout)
+        assert command_timeout == 65.0
+        assert wait_timeout == 75.0
 
 
 def test_calibration_catalog_is_read_only_and_classified(tmp_path: Path) -> None:
@@ -236,6 +269,37 @@ def test_available_calibration_tests_include_qgl_when_printer_supports_it(tmp_pa
     assert "bed_mesh_regular" in visible_keys
 
 
+def test_calibration_capabilities_keeps_connected_when_optional_toolhead_query_fails() -> None:
+    objects, object_status, connected = calibration_capabilities_payload(
+        {
+            "objects_list": ["toolhead", "probe", "bed_mesh", "quad_gantry_level", "print_stats"],
+            "toolhead_error": "query failed",
+        }
+    )
+
+    assert connected is True
+    assert "toolhead" in objects
+    assert object_status == {}
+
+
+def test_calibration_capabilities_uses_toolhead_status_as_object_source() -> None:
+    objects, object_status, connected = calibration_capabilities_payload(
+        {
+            "toolhead": {
+                "result": {
+                    "status": {
+                        "toolhead": {"axis_minimum": [0, 0, 0], "axis_maximum": [350, 350, 350]},
+                    }
+                }
+            }
+        }
+    )
+
+    assert connected is True
+    assert objects == ["toolhead"]
+    assert object_status["toolhead"]["axis_maximum"] == [350, 350, 350]
+
+
 def test_available_calibration_tests_hide_gcode_outside_printer_volume(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -281,6 +345,39 @@ def test_calibration_preflight_never_releases_gcode_execution(tmp_path: Path) ->
     assert preflight.blocked is False
     assert preflight.block_reasons == []
     assert preflight.gcode_preview == test.gcode
+
+
+def test_agent_calibration_preflight_exposes_live_capabilities(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("homing_endstops")
+    assert test is not None
+
+    preflight_payload = agent_preflight_payload(
+        {
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "objects_list": ["print_stats", "toolhead", "gcode_move"],
+            "object_status": {
+                "result": {
+                    "status": {
+                        "print_stats": {"state": "standby"},
+                        "toolhead": {"axis_minimum": [0, 0, 0], "axis_maximum": [120, 120, 120]},
+                    }
+                }
+            },
+        }
+    )
+
+    preflight = build_calibration_preflight(printer_id=1, test=test, preflight=preflight_payload)
+
+    assert preflight.connected is True
+    assert preflight.blocked is False
+    assert preflight.can_execute_gcode is True
 
 
 def test_calibration_preflight_blocks_while_printing(tmp_path: Path) -> None:
@@ -425,6 +522,190 @@ def test_calibration_execution_gate_can_be_ready_for_supervised_gcode(tmp_path: 
     assert gate.commands == test.gcode
 
 
+def test_calibration_execution_gate_allows_pid_calibrate_command(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("pid_hotend")
+    assert test is not None
+
+    gate = build_calibration_execution_gate(
+        test=test,
+        payload=CalibrationExecutionRequest(
+            test_key=test.test_key,
+            confirmation="EXECUTE_CALIBRATION_GCODE",
+            operator_present=True,
+            gcode_reviewed=True,
+        ),
+        preflight={
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "available_objects": ["toolhead", "print_stats", "extruder"],
+        },
+    )
+
+    assert gate.status == "ready"
+    assert gate.block_reasons == []
+    assert gate.commands == ["PID_CALIBRATE HEATER=extruder TARGET=220"]
+
+
+def test_calibration_execution_results_preserve_pid_console_excerpt() -> None:
+    results = _calibration_execution_results(
+        {
+            "results": [{"command": "PID_CALIBRATE HEATER=extruder TARGET=220", "accepted": True}],
+            "console_excerpt": [
+                "PID parameters: pid_Kp=42.725 pid_Ki=11.393 pid_Kd=40.055",
+                "The SAVE_CONFIG command will update the printer config file",
+                "with these parameters and restart the printer.",
+            ],
+        }
+    )
+
+    console = results[-1]
+    assert console["kind"] == "moonraker_console"
+    assert console["save_config_required"] is True
+    assert console["pid_parameters"] == {"pid_Kp": 42.725, "pid_Ki": 11.393, "pid_Kd": 40.055}
+
+
+def test_config_remediation_previews_included_heater_bed_section(tmp_path: Path) -> None:
+    config_root = tmp_path / "printer_data" / "config"
+    config_root.mkdir(parents=True)
+    (config_root / "printer.cfg").write_text("[include heaters.cfg]\n", encoding="utf-8")
+    (config_root / "heaters.cfg").write_text(
+        "\n".join(
+            [
+                "[heater_bed]",
+                "heater_pin: PB2",
+                "control: pid",
+                "pid_Kp: 10",
+                "pid_Ki: 1",
+                "pid_Kd: 100",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    request = ConfigRemediationRequest(
+        section="heater_bed",
+        options=[
+            ConfigOptionPatch(option="pid_Kp", value="46.546"),
+            ConfigOptionPatch(option="pid_Ki", value="1.309"),
+            ConfigOptionPatch(option="pid_Kd", value="413.674"),
+        ],
+    )
+
+    result = subprocess.run(
+        ["bash", "-lc", build_config_remediation_script(request, mode="preview")],
+        check=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert payload["status"] == "preview"
+    assert payload["section"] == "heater_bed"
+    assert len(payload["candidates"]) == 1
+    candidate = payload["candidates"][0]
+    assert candidate["path"] == "heaters.cfg"
+    assert candidate["changed"] is True
+    assert "pid_Kp: 46.546" in candidate["proposed"]
+    assert "pid_Ki: 1.309" in candidate["proposed"]
+    assert "pid_Kd: 413.674" in candidate["proposed"]
+    assert "{opt}" not in candidate["proposed"]
+    assert "{rel}" not in "\n".join(candidate["diff"])
+
+
+def test_config_remediation_does_not_depend_on_home_for_config_root(tmp_path: Path) -> None:
+    service_home = tmp_path / "agent-home"
+    service_home.mkdir()
+    config_root = tmp_path / "real-klipper-config"
+    config_root.mkdir(parents=True)
+    (config_root / "printer.cfg").write_text("[include bed.conf]\n", encoding="utf-8")
+    (config_root / "bed.conf").write_text(
+        "\n".join(
+            [
+                "[heater_bed]",
+                "heater_pin: PB2",
+                "control: pid",
+                "pid_Kp: 10",
+                "pid_Ki: 1",
+                "pid_Kd: 100",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    request = ConfigRemediationRequest(
+        section="heater_bed",
+        options=[
+            ConfigOptionPatch(option="pid_Kp", value="46.869"),
+            ConfigOptionPatch(option="pid_Ki", value="1.746"),
+            ConfigOptionPatch(option="pid_Kd", value="314.607"),
+        ],
+    )
+
+    result = subprocess.run(
+        ["bash", "-lc", build_config_remediation_script(request, mode="preview")],
+        check=True,
+        env={**os.environ, "HOME": str(service_home), "PRINTORA_KLIPPER_CONFIG_DIR": str(config_root)},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert payload["status"] == "preview"
+    assert payload["config_root"] == str(config_root)
+    assert len(payload["candidates"]) == 1
+    assert payload["matched_sections"] == [{"path": "bed.conf", "start_line": 1, "end_line": 6}]
+    assert "pid_Kp: 46.869" in payload["candidates"][0]["proposed"]
+
+
+def test_all_catalogued_gcode_commands_are_allowlisted(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+
+    blocked = {
+        test.test_key: _blocked_calibration_command(test.gcode)
+        for test in repository.list_tests()
+        if test.gcode and _blocked_calibration_command(test.gcode)
+    }
+
+    assert blocked == {}
+
+
+def test_calibration_preflight_blocks_commands_outside_allowlist(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("homing_endstops")
+    assert test is not None
+    unsafe_test = test.model_copy(update={"gcode": ["SAVE_CONFIG"]})
+
+    preflight = build_calibration_preflight(
+        printer_id=1,
+        test=unsafe_test,
+        preflight={
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "available_objects": ["toolhead", "print_stats"],
+        },
+    )
+
+    assert preflight.blocked is True
+    assert preflight.can_execute_gcode is False
+    assert "Comando fora da allowlist segura: SAVE_CONFIG." in preflight.block_reasons
+
+
 def test_calibration_execution_attempt_persists_blocked_gate(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -454,6 +735,155 @@ def test_calibration_execution_attempt_persists_blocked_gate(tmp_path: Path) -> 
     assert record.sent_commands == []
     assert record.commands == test.gcode
     assert len(repository.list_execution_attempts(printer.id)) == 1
+
+
+def test_calibration_execution_delete_keeps_latest_attempt(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("probe_accuracy_center")
+    assert test is not None
+    gate = build_calibration_execution_gate(
+        test=test,
+        payload=CalibrationExecutionRequest(test_key=test.test_key),
+        preflight={"connected": False, "printing": False, "print_state": ""},
+    )
+    first = repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="blocked",
+        sent_commands=[],
+        result=[],
+        message="first",
+    )
+    latest = repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="blocked",
+        sent_commands=[],
+        result=[],
+        message="latest",
+    )
+
+    assert repository.delete_execution_attempt_if_not_latest(printer.id, first.id) is True
+    assert repository.get_execution_attempt(first.id) is None
+    with pytest.raises(ValueError, match="última execução"):
+        repository.delete_execution_attempt_if_not_latest(printer.id, latest.id)
+    assert repository.get_execution_attempt(latest.id) is not None
+
+
+def test_config_remediation_apply_is_persisted_on_target_execution(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("pid_bed")
+    assert test is not None
+    gate = build_calibration_execution_gate(
+        test=test,
+        payload=CalibrationExecutionRequest(
+            test_key=test.test_key,
+            confirmation="EXECUTE_CALIBRATION_GCODE",
+            operator_present=True,
+            gcode_reviewed=True,
+        ),
+        preflight={
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "available_objects": ["heater_bed", "print_stats"],
+        },
+    )
+    execution = repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="executed",
+        sent_commands=["PID_CALIBRATE HEATER=heater_bed TARGET=60"],
+        result=[
+            {
+                "kind": "moonraker_console",
+                "pid_parameters": {"pid_Kp": 46.869, "pid_Ki": 1.746, "pid_Kd": 314.607},
+                "save_config_required": True,
+            }
+        ],
+        message="1/1 comando(s) confirmado(s).",
+    )
+    payload = ConfigRemediationApplyRequest(
+        section="heater_bed",
+        source=f"calibration:{test.test_key}",
+        execution_id=execution.id,
+        options=[
+            ConfigOptionPatch(option="pid_Kp", value="46.869"),
+            ConfigOptionPatch(option="pid_Ki", value="1.746"),
+            ConfigOptionPatch(option="pid_Kd", value="314.607"),
+        ],
+        target_ids=["thermal/bed.cfg:heater_bed:1"],
+        step_up_token="token",
+    )
+    settings = type("Settings", (), {"database_path": database_path})()
+
+    _append_config_remediation_to_execution(
+        settings,
+        printer.id,
+        payload,
+        {
+            "status": "applied",
+            "backup_path": "/home/pi/printer_data/config/backups/printora_config_remediation",
+            "applied": [{"id": "thermal/bed.cfg:heater_bed:1"}],
+            "firmware_restart": {"status": "executed"},
+        },
+    )
+
+    updated = repository.get_execution_attempt(execution.id)
+    assert updated is not None
+    remediation = [item for item in updated.result if item.get("kind") == "config_remediation"]
+    assert len(remediation) == 1
+    assert remediation[0]["status"] == "applied"
+    assert remediation[0]["section"] == "heater_bed"
+    assert remediation[0]["backup_path"].endswith("printora_config_remediation")
+
+
+def test_calibration_run_delete_keeps_latest_result(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    first = repository.create_run(
+        printer.id,
+        CalibrationRunCreate(
+            test_key="probe_accuracy_center",
+            result_status="passed",
+            observed_value="first",
+            gcode_reviewed=True,
+        ),
+    )
+    latest = repository.create_run(
+        printer.id,
+        CalibrationRunCreate(
+            test_key="probe_accuracy_center",
+            result_status="passed",
+            observed_value="latest",
+            gcode_reviewed=True,
+        ),
+    )
+
+    assert repository.delete_run_if_not_latest(printer.id, first.id) is True
+    assert repository.get_run(first.id) is None
+    with pytest.raises(ValueError, match="último resultado"):
+        repository.delete_run_if_not_latest(printer.id, latest.id)
+    assert repository.get_run(latest.id) is not None
 
 
 def test_calibration_execute_endpoint_blocks_offline_without_sending_gcode(tmp_path, monkeypatch) -> None:
@@ -493,37 +923,352 @@ def test_calibration_execute_endpoint_blocks_offline_without_sending_gcode(tmp_p
         get_settings.cache_clear()
 
 
-def test_gcode_send_timeout_is_confirmed_by_final_moonraker_state() -> None:
-    class TimeoutAfterAcceptClient:
-        async def gcode_store(self, count: int = 20):
-            return {"gcode_store": [{"message": "G28 concluído"}]}
+def test_calibration_execute_endpoint_sends_gcode_when_gate_is_ready(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    calls: list[dict] = []
 
-        async def gcode_script(self, script: str, *, timeout_seconds: float | None = None):
-            raise httpx.ReadTimeout("timed out after Moonraker accepted the command")
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        calls.append({"job_type": job_type, "payload": payload})
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats"],
+                    }
+                },
+            )()
+        return type("Job", (), {"result": {"sent_commands": ["G28"], "results": [{"accepted": True}]}})()
 
-        async def printer_info(self):
-            return {"state": "ready"}
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://voron.local:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
 
-        async def server_info(self):
-            return {"klippy_connected": True, "klippy_state": "ready"}
+            response = client.post(
+                f"/api/printers/{printer_id}/calibration/execute",
+                json={
+                    "test_key": "homing_endstops",
+                    "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                    "operator_present": True,
+                    "gcode_reviewed": True,
+                },
+            )
 
-        async def printer_objects_list(self):
-            return ["print_stats", "toolhead"]
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "executed"
+        assert payload["sent_commands"] == ["G28"]
+        assert calls[-1]["job_type"] == "remote_gcode_execute"
+        assert calls[-1]["payload"]["action_id"] == "calibration:homing_endstops"
+        assert calls[-1]["payload"]["commands"] == ["G28"]
+        assert calls[-1]["payload"]["timeout_seconds"] == 45.0
+    finally:
+        get_settings.cache_clear()
 
-        async def printer_objects(self, objects):
-            return {
-                "status": {
-                    "print_stats": {"state": "standby", "filename": ""},
-                    "toolhead": {"homed_axes": "xyz", "position": [0.0, 0.0, 10.0]},
+
+def test_calibration_execute_endpoint_preserves_dispatched_unconfirmed_status(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats"],
+                    }
+                },
+            )()
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "status": "dispatched_unconfirmed",
+                    "sent_commands": ["G28"],
+                    "results": [{"command": "G28", "accepted": True, "confirmation": "timeout_awaiting_headers"}],
                 }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://voron.local:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            response = client.post(
+                f"/api/printers/{printer_id}/calibration/execute",
+                json={
+                    "test_key": "homing_endstops",
+                    "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                    "operator_present": True,
+                    "gcode_reviewed": True,
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "dispatched_unconfirmed"
+        assert payload["sent_commands"] == ["G28"]
+        assert "enviado" in payload["message"]
+        assert "console do Printora" in payload["message"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_calibration_console_endpoint_reads_moonraker_store_via_agent(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    calls: list[dict] = []
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        calls.append({"job_type": job_type, "payload": payload, "timeout_seconds": timeout_seconds})
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "exit_code": 0,
+                    "stdout": '{"data_state":"live","console":["PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3","B:55.0 /60.0 T0:23.7 /0.0"]}',
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://127.0.0.1:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            response = client.get(f"/api/printers/{printer_id}/calibration/console?count=2")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["data_state"] == "live"
+        assert payload["console"][0] == "PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3"
+        assert calls[-1]["job_type"] == "remote_host_script"
+        assert calls[-1]["payload"]["kind"] == "calibration_console"
+        assert "server/gcode_store" in calls[-1]["payload"]["script"]
+        assert 'item.get("message")' in calls[-1]["payload"]["script"]
+        assert "reversed(store[-count:])" in calls[-1]["payload"]["script"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_calibration_console_endpoint_completes_pending_pid_execution(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats", "heater_bed"],
+                    }
+                },
+            )()
+        if job_type == "remote_gcode_execute":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "status": "dispatched_unconfirmed",
+                        "sent_commands": ["PID_CALIBRATE HEATER=heater_bed TARGET=60"],
+                        "results": [
+                            {
+                                "command": "PID_CALIBRATE HEATER=heater_bed TARGET=60",
+                                "accepted": True,
+                                "confirmation": "timeout_awaiting_headers",
+                            }
+                        ],
+                    }
+                },
+            )()
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "exit_code": 0,
+                    "stdout": (
+                        '{"data_state":"live","console":['
+                        '"B:59.9 /60.0 T0:28.7 /0.0",'
+                        '"// PID parameters: pid_Kp=46.546 pid_Ki=1.309 pid_Kd=413.674",'
+                        '"// The SAVE_CONFIG command will update the printer config file"'
+                        "]}"
+                    ),
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://127.0.0.1:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            execution = client.post(
+                f"/api/printers/{printer_id}/calibration/execute",
+                json={
+                    "test_key": "pid_bed",
+                    "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                    "operator_present": True,
+                    "gcode_reviewed": True,
+                },
+            )
+            assert execution.status_code == 200
+            assert execution.json()["status"] == "dispatched_unconfirmed"
+
+            console = client.get(f"/api/printers/{printer_id}/calibration/console?count=20")
+            executions = client.get(f"/api/printers/{printer_id}/calibration/executions")
+
+        assert console.status_code == 200
+        updated = console.json()["updated_execution"]
+        assert updated["test_key"] == "pid_bed"
+        assert updated["status"] == "executed"
+        assert updated["result"][-1]["pid_parameters"] == {
+            "pid_Kp": 46.546,
+            "pid_Ki": 1.309,
+            "pid_Kd": 413.674,
+        }
+        assert executions.status_code == 200
+        [record] = executions.json()["executions"]
+        assert record["test_key"] == "pid_bed"
+        assert record["status"] == "executed"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_calibration_execute_endpoint_blocks_immediate_duplicate(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    execute_calls = 0
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        nonlocal execute_calls
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats"],
+                    }
+                },
+            )()
+        execute_calls += 1
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "status": "executed",
+                    "sent_commands": ["G28"],
+                    "results": [{"command": "G28", "accepted": True}],
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://voron.local:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+            body = {
+                "test_key": "homing_endstops",
+                "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                "operator_present": True,
+                "gcode_reviewed": True,
             }
 
-    result = asyncio.run(_send_and_monitor_gcode(TimeoutAfterAcceptClient(), "G28", 0.05))
+            first = client.post(f"/api/printers/{printer_id}/calibration/execute", json=body)
+            second = client.post(f"/api/printers/{printer_id}/calibration/execute", json=body)
 
-    assert result["accepted"] is True
-    assert result["transport_status"] == "accepted_after_monitoring"
-    assert result["final_state"]["klipper_state"] == "ready"
-    assert result["final_state"]["homed_axes"] == "xyz"
+        assert first.status_code == 200
+        assert first.json()["status"] == "executed"
+        assert second.status_code == 200
+        assert second.json()["status"] == "blocked"
+        assert second.json()["sent_commands"] == []
+        assert "repetida bloqueada" in second.json()["message"]
+        assert execute_calls == 1
+    finally:
+        get_settings.cache_clear()
 
 
 def test_calibration_run_requires_existing_test(tmp_path: Path) -> None:

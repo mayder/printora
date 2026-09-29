@@ -245,6 +245,39 @@ class CalibrationRepository:
             raise RuntimeError("calibration run was not persisted")
         return record
 
+    def delete_run_if_not_latest(self, printer_id: int, run_id: int) -> bool:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, test_key
+                FROM calibration_test_runs
+                WHERE id = ? AND printer_id = ?
+                """,
+                (run_id, printer_id),
+            ).fetchone()
+            if row is None:
+                return False
+            latest = connection.execute(
+                """
+                SELECT id
+                FROM calibration_test_runs
+                WHERE printer_id = ? AND test_key = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, row["test_key"]),
+            ).fetchone()
+            if latest is not None and int(latest["id"]) == run_id:
+                raise ValueError("não é permitido apagar o último resultado deste teste")
+            connection.execute(
+                """
+                DELETE FROM calibration_test_runs
+                WHERE id = ? AND printer_id = ?
+                """,
+                (run_id, printer_id),
+            )
+        return True
+
     def list_runs(self, printer_id: int, limit: int = 50) -> list[CalibrationRunRecord]:
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
@@ -420,6 +453,84 @@ class CalibrationRepository:
                 (printer_id, clean_limit),
             ).fetchall()
         return [_execution_from_row(row) for row in rows]
+
+    def update_execution_attempt_result(
+        self,
+        attempt_id: int,
+        *,
+        status: str,
+        result: list[dict[str, Any]],
+        message: str,
+    ) -> CalibrationExecutionRecord | None:
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE calibration_execution_attempts
+                SET status = ?, result_json = ?, message = ?
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    json.dumps(result, ensure_ascii=False, sort_keys=True),
+                    message,
+                    attempt_id,
+                ),
+            )
+        return self.get_execution_attempt(attempt_id)
+
+    def delete_execution_attempt_if_not_latest(self, printer_id: int, attempt_id: int) -> bool:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, test_key
+                FROM calibration_execution_attempts
+                WHERE id = ? AND printer_id = ?
+                """,
+                (attempt_id, printer_id),
+            ).fetchone()
+            if row is None:
+                return False
+            latest = connection.execute(
+                """
+                SELECT id
+                FROM calibration_execution_attempts
+                WHERE printer_id = ? AND test_key = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, row["test_key"]),
+            ).fetchone()
+            if latest is not None and int(latest["id"]) == attempt_id:
+                raise ValueError("não é permitido apagar a última execução deste teste")
+            connection.execute(
+                """
+                DELETE FROM calibration_execution_attempts
+                WHERE id = ? AND printer_id = ?
+                """,
+                (attempt_id, printer_id),
+            )
+        return True
+
+    def recent_sent_execution(self, printer_id: int, test_key: str, within_seconds: int = 45) -> CalibrationExecutionRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, printer_id, test_key, created_at, status, confirmation_matched,
+                       operator_present, gcode_reviewed, connected, printing, print_state,
+                       klipper_state, klippy_state, commands_json, sent_commands_json,
+                       result_json, block_reasons_json, message
+                FROM calibration_execution_attempts
+                WHERE printer_id = ?
+                  AND test_key = ?
+                  AND status IN ('executed', 'dispatched_unconfirmed', 'failed_partial')
+                  AND sent_commands_json != '[]'
+                  AND created_at >= datetime('now', ?)
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, test_key, f"-{max(1, int(within_seconds))} seconds"),
+            ).fetchone()
+        return _execution_from_row(row) if row else None
 
 
 def _record_from_row(row) -> CalibrationTestRecord:
@@ -651,6 +762,9 @@ def build_calibration_preflight(
     )
     if unsupported_reason:
         block_reasons.append(unsupported_reason)
+    blocked_command = _blocked_calibration_command([command.strip() for command in test.gcode if command.strip()])
+    if blocked_command:
+        block_reasons.append(f"Comando fora da allowlist segura: {blocked_command}.")
     checklist = [
         "Confirmar que a impressora selecionada é a correta.",
         "Confirmar que não há impressão em andamento antes de qualquer calibração.",
@@ -747,13 +861,31 @@ def build_calibration_execution_gate(
 
 
 def _blocked_calibration_command(commands: list[str]) -> str | None:
-    allowed_prefixes = ("G28", "G0 ", "G1 ", "PROBE_ACCURACY", "QUAD_GANTRY_LEVEL", "BED_MESH_CALIBRATE")
+    allowed_codes = {
+        "G28",
+        "G0",
+        "G1",
+        "G90",
+        "G91",
+        "M82",
+        "M83",
+        "M106",
+        "M107",
+        "QUAD_GANTRY_LEVEL",
+        "BED_MESH_CALIBRATE",
+    }
+    allowed_prefixes = (
+        "PROBE_ACCURACY",
+        "PID_CALIBRATE ",
+        "SET_HEATER_TEMPERATURE ",
+    )
     denied_prefixes = ("SAVE_CONFIG", "RESTART", "FIRMWARE_RESTART", "M112")
     for command in commands:
         upper = command.strip().upper()
+        code = upper.split(maxsplit=1)[0] if upper else ""
         if upper.startswith(denied_prefixes):
             return command
-        if not upper.startswith(allowed_prefixes):
+        if code not in allowed_codes and not upper.startswith(allowed_prefixes):
             return command
     return None
 

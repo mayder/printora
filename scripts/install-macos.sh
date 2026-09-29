@@ -80,12 +80,8 @@ require_or_install_brew() {
     return
   fi
   warn "Homebrew não encontrado."
-  if confirm "Posso instalar o Homebrew?"; then
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  else
-    echo "Instalação interrompida. Instale Homebrew ou rode novamente permitindo a instalação." >&2
-    exit 1
-  fi
+  echo "Instalação interrompida. Instale o Homebrew pelo procedimento oficial verificado e execute novamente." >&2
+  exit 1
 }
 
 install_brew_packages() {

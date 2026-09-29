@@ -5,6 +5,19 @@
   margin-bottom: 14px;
 }
 
+.overview-strip .badge,
+.overview-strip .badge-with-action {
+  justify-self: stretch;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 1240px) {
+  .overview-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
 .overview-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.34fr);
@@ -140,4 +153,163 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 14px;
+}
+
+.fleet-dashboard-grid,
+.fleet-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fleet-dashboard-card,
+.fleet-action-card {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 14px;
+}
+
+.fleet-dashboard-card {
+  display: grid;
+  gap: 10px;
+}
+
+.fleet-dashboard-card > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fleet-dashboard-card > strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.fleet-dashboard-card p,
+.fleet-action-card span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.fleet-dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fleet-dashboard-metrics .metric {
+  grid-template-columns: minmax(170px, 1fr) auto;
+}
+
+.fleet-action-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fleet-action-card svg {
+  grid-row: span 2;
+  color: var(--accent);
+}
+
+.fleet-action-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 1240px) {
+  .overview-hero,
+  .overview-status-grid,
+  .fleet-dashboard-grid,
+  .fleet-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-status-card,
+  .overview-risk-card,
+  .fleet-dashboard-card,
+  .fleet-action-card {
+    min-width: 0;
+  }
+
+  .overview-status-grid .metric,
+  .fleet-dashboard-metrics .metric {
+    grid-template-columns: minmax(170px, 0.42fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .overview-status-grid .metric strong,
+  .fleet-dashboard-metrics .metric strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .fleet-dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-action-card {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .overview-status-grid .metric,
+  .fleet-dashboard-metrics .metric {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .overview-status-grid .metric span,
+  .overview-status-grid .metric strong,
+  .fleet-dashboard-metrics .metric span,
+  .fleet-dashboard-metrics .metric strong {
+    width: 100%;
+  }
+}
+.section-overview .onboarding-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.onboarding-entry-card > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.onboarding-entry-card h2,
+.onboarding-entry-card p {
+  margin: 0;
+}
+
+.onboarding-entry-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 720px) {
+  .section-overview .onboarding-entry-card,
+  .onboarding-entry-card > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
