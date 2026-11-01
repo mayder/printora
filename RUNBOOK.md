@@ -3239,7 +3239,7 @@ WAL, objetos, configuração e busca. Não é restauração sobre o banco produt
   Somente scratch UUID criado pelo teste e seus logs expirados são removidos;
   backups, releases de aplicação e o `pg_wal` produtivo são preservados.
 
-A toolchain canônica do agente e do CI cloud é Go 1.25.13. Antes de publicar,
+A toolchain canônica do agente e do CI cloud é Go 1.26.10. Antes de publicar,
 executar em `agent`: `go test ./...` e
 `go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...`. O guard de build assinado
 exige essa mesma versão. Atualizar toolchain não substitui nem re-assina os
@@ -3319,3 +3319,11 @@ verificações de segurança dos artefatos legados permanecem para rollback.
 
 Reteste ampliado incluindo test_wal_retention.py: 87 testes aprovados. Nenhuma
 rotina produtiva de backup/restore foi iniciada durante estes testes locais.
+
+Atualização de segurança da publicação (DEC-20261101-02): o workflow 41356737749
+foi interrompido pela auditoria Go antes do upload. Toolchain atualizada para
+1.26.10 em módulo, CI e guard; go test e govulncheck aprovados, sem
+vulnerabilidades. ./check.sh aprovado com 833 testes backend, 36 E2E, mutação
+62,70% e gate de cobertura aprovado. Nova tentativa exige outro SHA validado,
+sem dispensar auditoria e sem reativar backup. Agentes assinados existentes não
+são substituídos por essa atualização de toolchain.

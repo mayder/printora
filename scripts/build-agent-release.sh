@@ -24,7 +24,7 @@ source_version="$(awk -F'"' '/^const Version = / {print $2; exit}' "$AGENT_DIR/i
 [[ "$source_version" == "$VERSION" ]] || fail "versão do código $source_version difere de $VERSION"
 
 toolchain="$(cd "$AGENT_DIR" && go version | awk '{print $3}')"
-[[ "$toolchain" == "go1.25.13" ]] || fail "toolchain inesperada: $toolchain"
+[[ "$toolchain" == "go1.26.10" ]] || fail "toolchain inesperada: $toolchain"
 
 actual_key_id="sha256:$(openssl pkey -pubin -in "$PUBLIC_KEY" -outform DER 2>/dev/null | openssl dgst -sha256 | awk '{print $NF}')"
 [[ "$actual_key_id" == "$EXPECTED_KEY_ID" ]] || fail "fingerprint da chave pública divergente"

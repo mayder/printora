@@ -2909,3 +2909,19 @@ deploy. Procedimentos manuais em admin/ não são schema da aplicação e não s
 executados automaticamente. Mudança, inclusão/remoção de SQL aplicado ou grants
 continua bloqueante; testes verificam esses casos. A auditoria consulta o slot
 ativo e a réplica, em vez de presumir o slot azul.
+
+### DEC-20261101-02 — Atualizar Go para liberar a auditoria oficial de publicação
+
+O workflow 41356737749 passou pelos cinco gates, mas a auditoria interrompeu o
+processo antes do upload: dez vulnerabilidades alcançáveis na stdlib Go 1.25.13.
+Python e dependências Node de produção passaram. GO-2026-6809 exige Go 1.26.10;
+os demais achados GO-2026-6617/6613/6612/6611/6610/6608/6607/6605/6603 exigem
+1.26.9. Fonte oficial: https://go.dev/doc/devel/release e avisos pkg.go.dev/vuln.
+
+Fixar Go 1.26.10 em agent/go.mod, CI e guard de build assinado, preservando a
+diretiva de compatibilidade go 1.22, fontes, dependências e binários assinados já
+publicados. Retestar go test, govulncheck e ./check.sh antes do novo commit e do
+novo workflow. Nenhum scanner é dispensado; a política sem backup não muda.
+Rollback operacional continua na release ativa anterior. Não restaurar uma
+toolchain vulnerável para obter publicação verde. Distribuição de novos
+binários assinados do agente permanece em fluxo separado.

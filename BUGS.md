@@ -1710,3 +1710,10 @@ PDFs gerados/abertos. Restore pela unit instalada passou em 206 s. O timer de
 retenção removeu o WAL recomposto de teste após confirmação de custódia, com
 lock, checksum e auditoria; duas recusas anteriores preservaram o arquivo e a
 retentativa automática passou. Pipeline `34246366459`, tentativa 2, aprovado.
+
+### Auditoria de publicação bloqueada pela toolchain Go — 2026-11-01
+
+Workflow 41356737749 bloqueado antes do upload por dez vulnerabilidades
+alcançáveis da stdlib Go 1.25.13. Corrigir a toolchain fixada para 1.26.10,
+conforme DEC-20261101-02; manter scanner, testes, guard de build e rotinas de
+backup bloqueadas. Binários de agente previamente publicados não são alterados.

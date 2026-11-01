@@ -620,3 +620,15 @@ Rastreabilidade: `BUGS.md`, DEC-20260908-01 e relatório do incidente em `docs/a
   backup, com regressão de máscaras, durabilidade e ausência de reativação.
 
 Não é fechamento de pacote nem autorização de push/publicação.
+
+## Correção do gate de publicação — toolchain Go (2026-11-01)
+
+- [x] Diagnosticar falha da auditoria no workflow 41356737749, antes do upload.
+- [x] Fixar Go 1.26.10 no módulo, CI e guard de build; preservar agentes assinados.
+- [x] Aprovar go test e govulncheck na toolchain corrigida, sem vulnerabilidades.
+- [x] Aprovar ./check.sh e consolidar a correção da toolchain.
+
+A publicação do novo SHA exige workflow oficial verde e smoke atual; a execução
+41356737749 permanece como falha anterior, sem upload ou troca de tráfego.
+
+Correção operacional transversal; DEC-20261101-02. Sem reativação de backup.
