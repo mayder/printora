@@ -609,3 +609,14 @@ Correção transversal de bug crítico, sem reabrir pacote consolidado.
 - [x] Revisar, validar, commitar/push em cloud e publicar pelo fluxo oficial: `3da7f94`, workflow `34246366459` aprovado.
 
 Rastreabilidade: `BUGS.md`, DEC-20260908-01 e relatório do incidente em `docs/audits`.
+
+## Incidente operacional — capacidade e política sem backup (2026-11-01)
+
+- [x] Confirmar uso e autorização; liberar cache/scratchs sem processo em uso.
+- [x] Atender decisão “Sem backup”: mascarar timers e desativar arquivamento.
+- [x] Limpar apenas WAL arquivado após reinício dedicado e checagem de uso.
+- [x] Retestar PostgreSQL, health, readiness e catálogo; registrar DEC-20261101-01.
+- [x] Adequar bootstrap/deploy/preflight e auditoria à política explícita sem
+  backup, com regressão de máscaras, durabilidade e ausência de reativação.
+
+Não é fechamento de pacote nem autorização de push/publicação.

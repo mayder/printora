@@ -132,13 +132,13 @@ def test_checksum_mismatch_blocks_before_delete(monkeypatch, tmp_path):
     assert (source / wal(1)).read_bytes() == b"a"
 
 
-def test_shared_lock_is_stable_and_units_are_installed():
+def test_legacy_shared_lock_is_stable_and_units_are_not_reactivated():
     sync = (ROOT / "scripts/cloud/sync-postgresql-wal.sh").read_text()
     assert str(retention.LOCK) in sync
     for script in ["deploy-blue-green.sh", "bootstrap-blue-green.sh"]:
         text = (ROOT / "scripts/cloud" / script).read_text()
-        assert "printora-cloud-wal-retention.service" in text
-        assert "systemctl enable --now printora-cloud-wal-retention.timer" in text
+        assert "disable_recovery_units" in text
+        assert "systemctl enable --now printora-cloud-wal-retention.timer" not in text
     unit = (ROOT / "packaging/systemd/printora-cloud-wal-retention.service").read_text()
     assert "InaccessiblePaths=/var/lib/postgresql/16/printora/pg_wal" in unit
 

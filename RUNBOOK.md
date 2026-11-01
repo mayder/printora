@@ -3250,3 +3250,72 @@ O diretório `/etc/printora-cloud` deve continuar atravessável pelo usuário
 e `preserve-schema`. Proteger os segredos individualmente com 0600; não tornar
 o diretório inteiro 0700 ao provisionar uma chave. Validar a visibilidade dos
 marcadores com `runuser -u deploy -- test -e /etc/printora-cloud/preserve-releases`.
+
+## Operação atual sem backup — 2026-11-01
+
+Decisão vigente: DEC-20261101-01, autorização textual do owner “Sem backup”.
+Os procedimentos anteriores de backup/PITR são históricos para esta instalação.
+
+- SQL aplicado: `backend/sql/postgresql/admin/001_disable_printora_wal_archiving.sql`.
+- Cluster exclusivo `16/printora`, porta 5433: archive_mode off, archive_timeout 0;
+  fsync, full_page_writes e synchronous_commit on; 99 revisões e 176 tabelas
+  públicas antes/depois do reinício. Nenhuma réplica ou slot foi encontrado.
+- Timers `printora-cloud-{backup,wal-sync,wal-retention,restore-test,recovery-monitor}`
+  desabilitados e mascarados persistentemente. Cópias das unidades em
+  `/var/lib/printora-cloud/recovery/incident-20261101/units` para rollback.
+- Removidos sete scratchs antigos de restore e cache após parar os jobs e
+  verificar referências de processos. Arquivo WAL externo limpo somente após
+  confirmar archive_mode off e ausência de uso: 20.071 arquivos,
+  336.366.411.115 bytes. `pg_wal` interno foi preservado.
+- Evidência sanitizada remota:
+  `/var/lib/printora-cloud/recovery/incident-20261101/wal-cleanup.json`.
+- Disco após limpeza: 43% usado, 494 GiB livres (medição pontual; host compartilhado).
+- Smoke real: `/health`, `/ready` e `/api/catalog` aprovados.
+
+Validar configuração com pg_settings no cluster dedicado; conferir os cinco
+timers como masked/inactive e ausência de crescimento no arquivo WAL. Não
+apagar `pg_wal`, SQLite legado, uploads ou objetos. Backups históricos externos
+não foram limpos e não são evidência de recuperação atual. Não há backup
+programado nem cobertura de recuperação garantida.
+
+Publicação ajustada à decisão: `scripts/cloud/no-backup-policy.sh` é compartilhado
+por bootstrap, deploy, preflight e auditoria. Os cinco timers e os cinco serviços
+ficam mascarados. A publicação não instala unidades sobre máscaras e não ativa
+backup, WAL sync, retenção, restore ou monitor antigo. A política versionada do
+PostgreSQL mantém archive_mode off e archive_timeout zero. Instâncias ainda
+arquivando exigem a janela explícita do SQL; deploy nunca reinicia o banco.
+
+Validação remota: `/usr/local/sbin/printora-cloud-preflight` e `--quick` exigem
+as máscaras/inatividade e os parâmetros seguros do banco. Não consultam Restic,
+não usam full-backup.json/restore-test.json vencidos e continuam verificando
+capacidade, relógio, certificados, permissões, workers, Redis, S3 e aplicação.
+Usar `audit-final-architecture.sh` para a verificação completa da topologia.
+
+Ambiente local: carregar Node 22.22.0 via nvm, executar `npm ci --prefix frontend`
+e `cd frontend && npx playwright install chromium` quando faltarem dependências
+ou o navegador do gate E2E. Não usar npm audit fix nem alterar lockfile para
+contornar preparação local. Executar `./check.sh` sem dispensar gates.
+
+Rollback da política exige reverter os scripts/configuração versionados,
+configurar archive_mode on, repor as unidades preservadas e validar nova base
+externa/restore; RESET isolado não reativa arquivamento porque o padrão versionado
+agora é off. Não existe recuperação do período operado sem backup.
+
+Reteste do processo em 2026-11-01: preflight completo e quick aprovados; auditoria
+final aprovada no slot green, duas instâncias web, 176 tabelas, 99 revisões,
+zero índices/constraints inválidos e role analítica 1:0:0. Health/ready/catalog
+aprovados. Os scripts operacionais preflight/deploy/common/política/auditoria
+foram atualizados no host, com cópia anterior de configuração em
+`incident-20261101/process-rollback`; não houve troca de release da aplicação.
+A release pública permanece `3da7f949c00c58e4f2423ecd0dbe572dad926c4a`.
+O guard preserve-schema verifica somente SQL efetivamente aplicado e grants,
+sem executar procedimentos administrativos. Scripts manuais antigos de backup
+não são acionados pelo fluxo de publicação. Reativação exige decisão explícita.
+
+Regressão focada do processo: 47 testes aprovados em test_packaging.py,
+test_no_backup_policy.py e test_recovery_readiness.py. Os contratos antigos que
+exigiam reativação do backup foram substituídos pela decisão vigente; as
+verificações de segurança dos artefatos legados permanecem para rollback.
+
+Reteste ampliado incluindo test_wal_retention.py: 87 testes aprovados. Nenhuma
+rotina produtiva de backup/restore foi iniciada durante estes testes locais.

@@ -140,3 +140,21 @@ switch_nginx_to_slot() {
   fi
   systemctl reload nginx
 }
+
+postgresql_schema_matches() {
+  # Compare exactly the SQL applied by apply-postgresql-schema.sh, plus grants.
+  # admin/ contains explicit operator procedures and is never applied by deploy.
+  local source="$1" candidate="$2" index name
+  local source_files=("$source"/backend/sql/postgresql/[0-9]*.sql)
+  local candidate_files=("$candidate"/backend/sql/postgresql/[0-9]*.sql)
+  [[ -f "$source/backend/sql/postgresql/001_baseline.sql" && \
+     -f "$candidate/backend/sql/postgresql/001_baseline.sql" ]] || return 1
+  [[ "${#source_files[@]}" == "${#candidate_files[@]}" ]] || return 1
+  for index in "${!source_files[@]}"; do
+    name="$(basename "${source_files[$index]}")"
+    [[ "$name" == "$(basename "${candidate_files[$index]}")" ]] || return 1
+    cmp -s "${source_files[$index]}" "${candidate_files[$index]}" || return 1
+  done
+  cmp -s "$source/scripts/cloud/postgresql-runtime-permissions.sql" \
+    "$candidate/scripts/cloud/postgresql-runtime-permissions.sql"
+}

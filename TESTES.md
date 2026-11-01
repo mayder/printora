@@ -2622,3 +2622,22 @@ checksum divergente e instalação do lock/timer. Executar junto de
 Aceite operacional exige dry-run, remoção real auditada de segmentos já em
 custódia, backup físico e restore isolado atuais, continuidade externa, disco e
 saúde do banco/aplicações após lotes. Nunca usar pg_wal produtivo como fixture.
+
+## Política operacional sem backup — DEC-20261101-01
+
+`cd backend && uv run --extra dev pytest -q tests/test_no_backup_policy.py`
+executa os adapters de systemd e PostgreSQL isolados, sem acesso a produção.
+Cobrir reaplicação idempotente, máscaras ausentes, jobs ativos, arquivamento
+ligado, timeout, checksums/durabilidade desligados e réplica/slot presente.
+Bootstrap/deploy não podem sobrescrever máscaras nem executar enable/start.
+A publicação continua exigindo `./check.sh`, sem dispensar cobertura ou E2E.
+O reteste operacional usa preflight completo/quick, auditoria final, endpoints
+health/ready/catalog e confirmação de máscaras/inatividade; não inicia backup.
+
+O mesmo teste cobre preserve-schema: SQL aplicado diferente, arquivo adicional
+ou grants diferentes bloqueiam; procedimento administrativo manual não é
+executado nem confundido com mudança de schema da aplicação.
+
+`tests/test_packaging.py` e `tests/test_wal_retention.py` também exigem a ausência
+de reativação automática. Os contratos dos scripts legados continuam testados;
+isso não significa que seus serviços estejam ativos ou que exista backup válido.

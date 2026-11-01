@@ -339,3 +339,13 @@ local do Printora, com custódia por conteúdo, lock compartilhado e margem
 mínima de 72 horas. Avisar abaixo de 20% livre e bloquear publicação abaixo de
 10%. Inconsistência externa ou proteção vencida bloqueia a retenção; o owner
 operations deve tratar o incidente sem reduzir RPO nem limpar dados externos.
+
+### Exceção operacional do owner — 2026-11-01
+
+A DEC-20261101-01 substitui, nesta instalação do Printora, as exigências de
+backup externo, PITR e retenção WAL: o owner escolheu operar sem backup.
+O risco de perda irreversível foi explicitado. A durabilidade interna do banco
+continua obrigatória. Publicações exigem a política sem backup validada:
+serviços/timers mascarados e inativos, arquivamento desligado e durabilidade
+interna preservada. Não exigir cópia externa nem reativar rotinas; não declarar
+proteção de recuperação. Reativação futura exige nova decisão explícita do owner.

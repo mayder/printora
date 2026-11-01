@@ -2862,3 +2862,50 @@ binários de agente neste incidente. Não dispensar a auditoria para publicar a
 retenção. Os avisos oficiais GO-2026-6218, GO-2026-6090, GO-2026-5972 e
 GO-2026-5026 apontam 1.25.13 como correção. Rollback da publicação permanece no
 slot anterior; não recolocar a toolchain vulnerável para contornar o gate.
+
+### DEC-20261101-01 — Desativar backup e arquivamento WAL por decisão do owner
+
+O owner determinou explicitamente “Sem backup” em 2026-11-01. Para esta
+instalação pessoal, substitui a exigência de PITR/RPO de cinco minutos e a
+retenção local da DEC-20260908-01. Não se aplica a outros projetos do host.
+
+Desativar e mascarar os cinco timers de backup, sync WAL, retenção WAL, restore
+e monitor de recuperação. Aplicar
+`backend/sql/postgresql/admin/001_disable_printora_wal_archiving.sql` somente no
+cluster 16/printora (5433), sem réplica ou slot, e reiniciar somente esse cluster.
+Preservar `pg_wal`, fsync, full_page_writes, synchronous_commit e todos os dados
+funcionais. Após confirmar `archive_mode=off` e ausência de arquivos em uso,
+remover somente o arquivo WAL externo ao cluster, cache e scratchs de restore
+explicitamente autorizados.
+
+Risco aceito: não há backup automático nem garantia de recuperação após perda
+do host, corrupção ou exclusão. Não afirmar backup/restore válido: o backup
+completo e a sincronização anteriores estavam vencidos e o restore falhava.
+Cópias históricas externas não foram removidas nem validadas nesta intervenção.
+A tentativa de cópia lógica de resgate foi cancelada após a instrução do owner.
+
+Controles compensatórios: durabilidade transacional do PostgreSQL preservada,
+mascaramento persistente de timers, smoke pós-reinício e registro sanitizado da
+limpeza. O preflight, bootstrap, deploy e auditoria final passam a exigir a política
+sem backup explicitamente: dez unidades (timers e serviços) mascaradas e sem
+execução, archive_mode off, archive_timeout zero, checksums/fsync/full_page_writes/
+synchronous_commit on e ausência de réplicas/slots. Falta de máscara, rotina
+ativa ou durabilidade reduzida bloqueia publicação. Não há consulta Restic nem
+estado antigo de recuperação tratado como sucesso. Bootstrap/deploy nunca
+instalam unidades por cima das máscaras nem executam enable/start dessas rotinas.
+A configuração PostgreSQL versionada preserva o arquivamento desligado; se uma
+instância antiga ainda estiver com ele ligado, exigir intervenção explícita,
+sem reinício automático durante publicação.
+
+Rollback: RESET das três configurações conforme o SQL, reinício dedicado,
+reversão da política versionada e reinstalação dos timers preservados,
+configuração de archive_mode on e nova base externa/restauração testada.
+O período sem arquivamento e as cópias removidas não podem ser recuperados pelo
+rollback da configuração.
+
+Complemento de publicação: o guard preserve-schema compara os SQL numerados na
+raiz de backend/sql/postgresql e os grants, exatamente o conjunto aplicado pelo
+deploy. Procedimentos manuais em admin/ não são schema da aplicação e não são
+executados automaticamente. Mudança, inclusão/remoção de SQL aplicado ou grants
+continua bloqueante; testes verificam esses casos. A auditoria consulta o slot
+ativo e a réplica, em vez de presumir o slot azul.

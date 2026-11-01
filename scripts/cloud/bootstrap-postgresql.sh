@@ -51,8 +51,8 @@ elif ! pg_ctlcluster "$version" "$cluster" status >/dev/null 2>&1; then
   pg_ctlcluster "$version" "$cluster" start
 else
   configured_archive_mode="$(sudo -u postgres psql -p "$port" -Atqc 'SHOW archive_mode')"
-  [[ "$configured_archive_mode" == "on" ]] || {
-    echo "cluster existente exige janela explícita para ativar archive_mode" >&2
+  [[ "$configured_archive_mode" == "off" ]] || {
+    echo "cluster existente exige janela explícita para desativar archive_mode" >&2
     exit 1
   }
   pg_ctlcluster "$version" "$cluster" reload

@@ -6,6 +6,7 @@ if [[ ! -s "$SCRIPT_DIR/common.sh" && -s /usr/local/libexec/printora-cloud/commo
   SCRIPT_DIR=/usr/local/libexec/printora-cloud
 fi
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/no-backup-policy.sh"
 
 require_root
 mode="${1:-}"
@@ -33,40 +34,6 @@ check_with_diagnostics() {
     [[ -z "$output" ]] || printf 'diagnostic=%s\n' "$output" >&2
     failures=$((failures + 1))
   fi
-}
-
-validate_backup_target() {
-  local config="$PRINTORA_BASE_PATH/shared/backup-target.conf"
-  [[ "$(stat -c '%a' "$config")" == "600" ]] || return 1
-  [[ "$(stat -c '%U' "$config")" == "deploy" ]] || return 1
-  python3 - "$config" <<'PY'
-import sys
-
-values = {}
-for raw_line in open(sys.argv[1], encoding="utf-8"):
-    line = raw_line.strip()
-    if not line or line.startswith("#") or "=" not in line:
-        continue
-    key, value = line.split("=", 1)
-    values[key.strip()] = value.strip().strip("'\"")
-repository = values.get("RESTIC_REPOSITORY", "")
-password_file = values.get("RESTIC_PASSWORD_FILE", "")
-custody_id = values.get("PRINTORA_RECOVERY_CUSTODY_ID", "")
-external_prefixes = ("s3:", "sftp:", "rest:", "azure:", "gs:", "b2:", "rclone:")
-if not repository.startswith(external_prefixes) or not password_file.startswith("/") or not custody_id:
-    raise SystemExit(1)
-PY
-}
-
-validate_backup_repository() {
-  local config="$PRINTORA_BASE_PATH/shared/backup-target.conf"
-  timeout 30 sudo -u deploy bash -c '
-    set -euo pipefail
-    set -a
-    source "$1"
-    set +a
-    restic snapshots >/dev/null
-  ' bash "$config"
 }
 
 validate_resource_budget() {
@@ -103,7 +70,7 @@ validate_postgresql_runtime() {
   pg_isready -q -h 127.0.0.1 -p 5433 -d printora_cloud
   [[ -d /var/lib/postgresql/16/printora-wal-archive ]]
   [[ "$(runuser -u postgres -- psql -p 5433 -d printora_cloud -X -Atqc \
-    "SELECT current_setting('data_checksums') || ':' || current_setting('archive_mode')")" == "on:on" ]]
+    "SELECT current_setting('data_checksums') || ':' || current_setting('archive_mode')")" == "on:off" ]]
   [[ "$(runuser -u postgres -- psql -p 5433 -d printora_cloud -X -Atqc \
     "SELECT has_table_privilege('printora_analytics','analytics_events','UPDATE')::int || ':' ||
             has_table_privilege('printora_analytics','auth_users','SELECT')::int")" == "1:0" ]]
@@ -160,16 +127,6 @@ validate_object_storage() {
   [[ -x /usr/local/libexec/printora-cloud/run-object-storage-tool.sh ]]
 }
 
-validate_recovery_readiness() {
-  [[ -x /usr/local/libexec/printora-cloud/sync-postgresql-wal.sh ]]
-  [[ -x /usr/local/libexec/printora-cloud/recovery-readiness.py ]]
-  [[ -x /usr/local/libexec/printora-cloud/run-restore-test.sh ]]
-  systemctl is-active --quiet printora-cloud-wal-sync.timer
-  systemctl is-active --quiet printora-cloud-restore-test.timer
-  systemctl is-active --quiet printora-cloud-recovery-monitor.timer
-  /usr/local/libexec/printora-cloud/recovery-readiness.py >/dev/null
-}
-
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
@@ -181,8 +138,6 @@ check green_port bash -c '! ss -ltnH "sport = :8070" | grep -q . || systemctl is
 check replica_port bash -c '! ss -ltnH "sport = :8071" | grep -q . || systemctl is-active --quiet printora-cloud@replica.service'
 check certificate test -s /etc/letsencrypt/live/print3dmaker.xyz/fullchain.pem
 check logrotate test -s /etc/logrotate.d/printora-cloud
-check restic restic version
-check backup_target validate_backup_target
 check resource_budget validate_resource_budget
 check disk_capacity validate_disk_capacity
 check postgresql_environment validate_postgresql_environment
@@ -191,9 +146,6 @@ check application_slots validate_application_slots
 check durable_workers validate_durable_workers
 check recomposable_redis validate_recomposable_redis
 check object_storage validate_object_storage
-if [[ "$mode" != "--quick" ]]; then
-  check backup_repository validate_backup_repository
-  check_with_diagnostics recovery_readiness validate_recovery_readiness
-fi
+check_with_diagnostics no_backup_policy validate_no_backup_policy
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

@@ -126,7 +126,7 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "RUN_FRONTEND_CHECKS=1" in workflow
     assert "printora-cloud-preflight --quick" in workflow
     assert "Validate definitive privileged preflight" in workflow
-    assert "Diagnóstico seguro do recovery readiness" in workflow
+    assert "Diagnóstico seguro do preflight e política sem backup" in workflow
     assert "printora-cloud-retain-releases --apply" in workflow
     assert "--exclude='.artifacts'" in workflow
     assert "ServerAliveInterval=30" in workflow
@@ -214,8 +214,7 @@ def test_cloud_journal_and_release_retention_are_installed() -> None:
     assert "printora-cloud-retain-releases --apply" in deploy
     assert "retention_status=" in deploy
     assert "/etc/printora-cloud/preserve-schema" in deploy
-    assert "diff -qr --exclude='._*'" in deploy
-    assert 'cmp -s "$schema_source/scripts/cloud/postgresql-runtime-permissions.sql"' in deploy
+    assert 'postgresql_schema_matches "$schema_source" "$release_dir"' in deploy
     assert "printora-cloud-retain-releases --apply" in sudoers
 
 
@@ -370,7 +369,8 @@ def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> 
     assert "nenhum snapshot ou bloco foi removido" in retention
     assert "Persistent=true" in timer
     assert "OnCalendar=Sat *-*-* 03:15:00 UTC" in timer
-    assert "systemctl enable --now printora-cloud-backup.timer" in bootstrap
+    assert "disable_recovery_units" in bootstrap
+    assert "systemctl enable --now printora-cloud-backup.timer" not in bootstrap
 
 
 def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> None:
@@ -402,8 +402,11 @@ def test_postgresql_bootstrap_uses_dedicated_checksummed_cluster() -> None:
 
     assert "--data-checksums" in bootstrap
     assert "5433" in bootstrap
-    assert "archive_mode = on" in config
-    assert "archive-postgresql-wal.sh" in config
+    assert "archive_mode = off" in config
+    assert "archive_command = ''" in config
+    assert "fsync = on" in config
+    assert "full_page_writes = on" in config
+    assert "synchronous_commit = on" in config
     assert "max_wal_size = '4GB'" in config
     assert "checkpoint_completion_target = 0.9" in config
     assert "127.0.0.1" in config
@@ -421,7 +424,7 @@ def test_postgresql_wal_archive_is_published_atomically() -> None:
     assert "rm -f" in archive
 
 
-def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
+def test_legacy_physical_rpo_artifacts_remain_available_without_archiving() -> None:
     sync = (ROOT_DIR / "scripts/cloud/sync-postgresql-wal.sh").read_text()
     monitor = (ROOT_DIR / "scripts/cloud/recovery-readiness.py").read_text()
     config = (ROOT_DIR / "packaging/postgresql/printora.conf").read_text()
@@ -429,7 +432,7 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     timer = (ROOT_DIR / "packaging/systemd/printora-cloud-wal-sync.timer").read_text()
     alert = (ROOT_DIR / "scripts/cloud/emit-recovery-alert.sh").read_text()
 
-    assert "archive_timeout = '120s'" in config
+    assert "archive_timeout = 0" in config
     assert "restic backup" in sync
     assert "--tag printora-cloud-wal" in sync
     assert "restic ls latest --tag printora-cloud-wal --json" in sync
@@ -458,7 +461,7 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
             assert "RuntimeMaxSec=" not in unit
 
 
-def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
+def test_legacy_restore_artifacts_preserve_resource_limits_but_are_not_scheduled() -> None:
     restore = (ROOT_DIR / "scripts/cloud/restore-postgresql-backup-test.sh").read_text()
     wrapper = (ROOT_DIR / "scripts/cloud/run-restore-test.sh").read_text()
     service = (ROOT_DIR / "packaging/systemd/printora-cloud-restore-test.service").read_text()
@@ -481,9 +484,9 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     assert "IOWeight=10" in service
     assert "TimeoutStartSec=930" in service
     assert "Persistent=true" in timer
-    assert "printora-cloud-restore-test.timer" in deploy
-    assert "printora-cloud-recovery-monitor.timer" in audit
-    assert "recovery-readiness.py" in audit
+    assert "disable_recovery_units" in deploy
+    assert "validate_no_backup_policy" in audit
+    assert "recovery-readiness.py" not in audit
     assert "install -o root -g postgres -m 0640" in deploy
     retention = (ROOT_DIR / "scripts/cloud/preview-backup-retention.sh").read_text()
     assert "--tag printora-cloud-wal" in retention
@@ -501,7 +504,10 @@ def test_cloud_runtime_is_postgresql_only_after_transition_cleanup() -> None:
     assert "postgresql_environment" in preflight
     assert "postgresql_runtime" in preflight
     assert "postgresql@16-printora.service" in preflight
-    assert "check_with_diagnostics recovery_readiness" in preflight
+    assert "check_with_diagnostics no_backup_policy" in preflight
+    assert "check_with_diagnostics recovery_readiness" not in preflight
+    assert "validate_backup_repository" not in preflight
+    assert "validate_backup_target" not in preflight
     assert "postgresql-canary" not in sudoers
     assert "postgresql-cutover" not in sudoers
 

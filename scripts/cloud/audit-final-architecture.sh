@@ -6,6 +6,7 @@ if [[ ! -s "$SCRIPT_DIR/common.sh" && -s /usr/local/libexec/printora-cloud/commo
   SCRIPT_DIR=/usr/local/libexec/printora-cloud
 fi
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/no-backup-policy.sh"
 require_root
 
 release_dir="$(readlink -f "$PRINTORA_BASE_PATH/current")"
@@ -14,7 +15,7 @@ active="$(active_slot)"
 replica_dir="$(readlink -f "$PRINTORA_BASE_PATH/slots/replica")"
 [[ "$release_dir" == "$replica_dir" ]] || fail "réplica diverge da release ativa"
 
-for port in 8069 8071; do
+for port in "$(slot_port "$active")" 8071; do
   curl --max-time 2 -fsS "http://127.0.0.1:$port/ready" >/dev/null
 done
 for unit in \
@@ -22,18 +23,13 @@ for unit in \
   printora-cloud@replica.service \
   printora-cloud-workers.target \
   printora-cloud-intelligence.service \
-  printora-cloud-backup.timer \
-  printora-cloud-wal-sync.timer \
-  printora-cloud-restore-test.timer \
-  printora-cloud-recovery-monitor.timer \
   postgresql@16-printora.service \
   redis-printora.service \
   minio-printora.service; do
   systemctl is-active --quiet "$unit" || fail "unit inativa: $unit"
 done
 
-/usr/local/libexec/printora-cloud/recovery-readiness.py >/dev/null \
-  || fail "prontidão de recuperação divergente"
+validate_no_backup_policy || fail "política sem backup divergente"
 
 obsolete=(
   transition_outbox.py

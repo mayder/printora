@@ -2,8 +2,15 @@
 
 ## Bugs Conhecidos
 
-O incidente de capacidade WAL foi corrigido, publicado e validado em produção
-em 2026-09-08, com evidência de exclusão automática e restore real abaixo.
+O incidente de setembro teve recorrência em 2026-11-01: arquivo WAL com
+314 GiB, cache com 60 GiB, scratchs com cerca de 40 GiB, sync vencido desde
+22/10 e backup completo desde 17/10. Quase 71 mil snapshots externos e timeouts
+bloqueavam a renovação da custódia e a retenção. O owner determinou “Sem backup”.
+A capacidade foi recuperada, o arquivamento foi desativado e os timers foram
+mascarados conforme DEC-20261101-01. Banco/readiness/catálogo retestados.
+Não há backup validado nem publicação de release nesta intervenção. O processo
+de publicação foi adequado à política sem backup, com preflight e auditoria
+remotos aprovados; as dez unidades de recuperação continuam mascaradas.
 
 ## Bugs Corrigidos
 

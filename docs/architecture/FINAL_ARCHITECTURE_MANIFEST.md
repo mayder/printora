@@ -2,6 +2,18 @@
 
 Data de corte: 2026-07-24
 
+### Política de recuperação vigente — 2026-11-01
+
+A DEC-20261101-01 substitui os controles de backup/PITR descritos historicamente
+abaixo nesta instalação: os cinco timers e serviços de backup, WAL sync,
+retenção, restore e monitor de recuperação permanecem mascarados e inativos.
+Bootstrap/deploy não os reinstalam ou ativam. Preflight/auditoria exigem
+archive_mode off, archive_timeout zero, checksums e durabilidade interna on,
+sem réplica ou slot. Não existe backup automático nem RPO/RTO de recuperação
+garantido. Os artefatos antigos permanecem disponíveis para rollback explícito,
+sem constituir evidência atual de proteção. Retorno à política anterior exige
+nova decisão e nova base/restauração validada.
+
 ## Topologia canônica
 
 - Cloud: Nginx distribui tráfego entre duas instâncias web da mesma release

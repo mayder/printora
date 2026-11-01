@@ -243,8 +243,8 @@ jobs:
             if sudo -n /usr/local/sbin/printora-cloud-preflight; then
               exit 0
             fi
-            echo "::error::Diagnóstico seguro do recovery readiness:"
-            sudo -n /usr/local/libexec/printora-cloud/recovery-readiness.py || true
+            echo "::error::Diagnóstico seguro do preflight e política sem backup:"
+            sudo -n /usr/local/sbin/printora-cloud-preflight --quick || true
             exit 1
           '
 
